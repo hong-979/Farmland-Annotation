@@ -133,6 +133,37 @@ describe('App', () => {
     expect(createObjectURL).not.toHaveBeenCalled();
   });
 
+  it('does not create a PDF URL when a pending import finishes after unmount', async () => {
+    let resolveRead!: (value: { text: string; fingerprint: string }) => void;
+    const pendingRead = new Promise<{ text: string; fingerprint: string }>((resolve) => {
+      resolveRead = resolve;
+    });
+    const createObjectURL = vi.fn().mockReturnValue('blob:late');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL });
+    readUtf8JsonFileMock.mockReturnValue(pendingRead);
+    parseAnnotationJsonMock.mockReturnValue({
+      ok: true,
+      document,
+      warnings: [],
+    } satisfies ParseResult);
+    const view = render(<App />);
+    let importPromise!: Promise<void>;
+
+    act(() => {
+      importPromise = latestImportProps().onImport({
+        jsonFile: new File([], 'annotations.json', { type: 'application/json' }),
+        pdfFile: new File([], 'report.pdf', { type: 'application/pdf' }),
+      });
+    });
+    view.unmount();
+    resolveRead({ text: '{"output":[]}', fingerprint: 'fingerprint-1' });
+    await importPromise;
+
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+  });
+
   it('turns UTF-8 read failures into a Chinese actionable issue without rejecting', async () => {
     vi.stubGlobal('URL', { createObjectURL: vi.fn(), revokeObjectURL: vi.fn() });
     readUtf8JsonFileMock.mockRejectedValue(new TypeError('invalid UTF-8'));

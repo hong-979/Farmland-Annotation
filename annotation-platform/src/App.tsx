@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   FileImportScreen,
   type ImportSelection,
@@ -47,7 +47,18 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
   const [importedAnnotation, setImportedAnnotation] = useState<ImportedAnnotation | null>(null);
+  const mountedRef = useRef(false);
+  const importGenerationRef = useRef(0);
   const pdfUrl = importedAnnotation?.pdfUrl ?? null;
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      importGenerationRef.current += 1;
+    };
+  }, []);
 
   useEffect(
     () => () => {
@@ -59,6 +70,11 @@ function App() {
   );
 
   async function handleImport({ jsonFile, pdfFile }: ImportSelection): Promise<void> {
+    const importGeneration = importGenerationRef.current + 1;
+    importGenerationRef.current = importGeneration;
+    const isCurrentImport = () =>
+      mountedRef.current && importGenerationRef.current === importGeneration;
+
     setBusy(true);
     setIssues([]);
 
@@ -68,7 +84,13 @@ function App() {
       try {
         jsonContents = await readUtf8JsonFile(jsonFile);
       } catch {
-        setIssues([JSON_READ_ISSUE]);
+        if (isCurrentImport()) {
+          setIssues([JSON_READ_ISSUE]);
+        }
+        return;
+      }
+
+      if (!isCurrentImport()) {
         return;
       }
 
@@ -83,12 +105,23 @@ function App() {
         return;
       }
 
+      if (!isCurrentImport()) {
+        return;
+      }
+
       let nextPdfUrl: string;
 
       try {
         nextPdfUrl = URL.createObjectURL(pdfFile);
       } catch {
-        setIssues([PDF_URL_ISSUE]);
+        if (isCurrentImport()) {
+          setIssues([PDF_URL_ISSUE]);
+        }
+        return;
+      }
+
+      if (!isCurrentImport()) {
+        URL.revokeObjectURL(nextPdfUrl);
         return;
       }
 
@@ -100,9 +133,13 @@ function App() {
       });
       setIssues(parseResult.warnings);
     } catch {
-      setIssues([UNKNOWN_IMPORT_ISSUE]);
+      if (isCurrentImport()) {
+        setIssues([UNKNOWN_IMPORT_ISSUE]);
+      }
     } finally {
-      setBusy(false);
+      if (isCurrentImport()) {
+        setBusy(false);
+      }
     }
   }
 
