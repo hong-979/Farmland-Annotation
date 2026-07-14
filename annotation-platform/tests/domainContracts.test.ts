@@ -1,43 +1,100 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import type {
+  AnnotationDocument,
+  AnnotationTask,
+  DraftPayload,
+  EvidenceFragment,
+  JsonRecord,
+  ParseFailure,
+  ParseResult,
+  ParseSuccess,
+  TaskListStatus,
+  ValidationIssue,
+  VerificationStatus,
+} from '../src/domain/types';
+import { validRawDocument, validRawText } from './fixtures';
 import { describe, expect, it } from 'vitest';
 
-const typesPath = resolve(process.cwd(), 'src/domain/types.ts');
-const fixturesPath = resolve(process.cwd(), 'tests/fixtures.ts');
+const raw: JsonRecord = { preserved: true };
+const verificationStatus: VerificationStatus = 'incorrect';
+const taskListStatus: TaskListStatus = 'modified';
+
+const validationIssue: ValidationIssue = {
+  severity: 'warning',
+  code: 'synthetic-warning',
+  path: 'output[0].verification_status',
+  message: 'synthetic warning',
+  taskIndex: 0,
+};
+
+const evidenceFragment: EvidenceFragment = {
+  id: 'task-0-evidence-0',
+  pageNumber: 2,
+  originalText: '测试证据文本',
+  evidenceRole: '直接冲突',
+  raw: validRawDocument.output[0].evidence_fragments[0],
+};
+
+const annotationTask: AnnotationTask = {
+  index: 0,
+  label: '水资源',
+  reviewPoint: '核对可供水量是否包含计算过程。',
+  verificationStatus,
+  evidenceFragments: [evidenceFragment],
+  judgmentBasis: '已有结果缺少计算过程。',
+  pageNumbers: [2],
+  raw: validRawDocument.output[0],
+};
+
+const annotationDocument: AnnotationDocument = {
+  sourceName: 'synthetic.json',
+  fingerprint: 'synthetic-fingerprint',
+  rawRoot: validRawDocument,
+  originalTasks: [annotationTask],
+  tasks: [annotationTask],
+};
+
+const parseSuccess: ParseSuccess = {
+  ok: true,
+  document: annotationDocument,
+  warnings: [validationIssue],
+};
+
+const parseFailure: ParseFailure = {
+  ok: false,
+  errors: [validationIssue],
+};
+
+const successResult: ParseResult = parseSuccess;
+const failureResult: ParseResult = parseFailure;
+
+const draftPayload: DraftPayload = {
+  fingerprint: 'synthetic-fingerprint',
+  sourceName: 'synthetic.json',
+  tasks: [annotationTask],
+  currentTaskIndex: 0,
+  savedAt: '2026-07-14T00:00:00.000Z',
+};
+
+const invalidDraftPayload: DraftPayload = {
+  ...draftPayload,
+  // @ts-expect-error DraftPayload.savedAt must be a string timestamp.
+  savedAt: 123,
+};
+void invalidDraftPayload;
 
 describe('domain contracts', () => {
-  it('declares the canonical annotation domain types in source', () => {
-    expect(existsSync(typesPath)).toBe(true);
-
-    const source = readFileSync(typesPath, 'utf8');
-
-    expect(source).toContain('export type JsonRecord = Record<string, unknown>;');
-    expect(source).toContain(
-      "export type VerificationStatus = 'correct' | 'incorrect' | 'not_applicable' | null;",
-    );
-    expect(source).toContain(
-      "export type TaskListStatus = 'unprocessed' | 'confirmed' | 'modified' | 'incomplete';",
-    );
-    expect(source).toContain('export interface EvidenceFragment {');
-    expect(source).toContain('export interface AnnotationTask {');
-    expect(source).toContain('export interface AnnotationDocument {');
-    expect(source).toContain('export interface ValidationIssue {');
-    expect(source).toContain('export interface ParseSuccess {');
-    expect(source).toContain('export interface ParseFailure {');
-    expect(source).toContain('export type ParseResult = ParseSuccess | ParseFailure;');
-    expect(source).toContain('export interface DraftPayload {');
+  it('accepts representative objects for the canonical contracts', () => {
+    expect(raw).toEqual({ preserved: true });
+    expect(taskListStatus).toBe('modified');
+    expect(annotationTask.verificationStatus).toBe('incorrect');
+    expect(annotationDocument.tasks).toHaveLength(1);
+    expect(successResult.ok).toBe(true);
+    expect(failureResult.ok).toBe(false);
+    expect(draftPayload.savedAt).toBe('2026-07-14T00:00:00.000Z');
   });
 
-  it('exports a complete synthetic raw document fixture', async () => {
-    expect(existsSync(fixturesPath)).toBe(true);
-
-    const source = readFileSync(fixturesPath, 'utf8');
-    expect(source).toContain("project_id: 'synthetic-project'");
-
-    const fixtureModule = await import(pathToFileURL(fixturesPath).href);
-
-    expect(fixtureModule.validRawDocument).toMatchObject({
+  it('exports a complete synthetic raw document fixture', () => {
+    expect(validRawDocument).toMatchObject({
       project_id: 'synthetic-project',
       output: [
         {
@@ -51,7 +108,7 @@ describe('domain contracts', () => {
       ],
       root_extension: { keep: true },
     });
-    expect(fixtureModule.validRawDocument.output[0].evidence_fragments).toEqual([
+    expect(validRawDocument.output[0].evidence_fragments).toEqual([
       {
         page_number: '2',
         original_text: '测试证据文本',
@@ -59,8 +116,6 @@ describe('domain contracts', () => {
         upstream_note: 'preserve me',
       },
     ]);
-    expect(fixtureModule.validRawText).toBe(
-      JSON.stringify(fixtureModule.validRawDocument),
-    );
+    expect(validRawText).toBe(JSON.stringify(validRawDocument));
   });
 });
