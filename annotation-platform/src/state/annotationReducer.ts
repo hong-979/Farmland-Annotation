@@ -19,9 +19,13 @@ export type AnnotationAction =
 
 const recalculatePages = (task: AnnotationTask): AnnotationTask => ({
   ...task,
-  pageNumbers: [...new Set(task.evidenceFragments.flatMap((evidence) => evidence.pageNumber ?? []))].sort(
-    (left, right) => left - right,
-  ),
+  pageNumbers: [
+    ...new Set(
+      task.evidenceFragments.flatMap((evidence) =>
+        evidence.pageNumber !== null && evidence.pageNumber > 0 ? [evidence.pageNumber] : [],
+      ),
+    ),
+  ].sort((left, right) => left - right),
 });
 
 export function annotationReducer(tasks: AnnotationTask[], action: AnnotationAction): AnnotationTask[] {
@@ -45,7 +49,7 @@ export function annotationReducer(tasks: AnnotationTask[], action: AnnotationAct
     if (action.type === 'add-evidence') {
       return recalculatePages({
         ...task,
-        evidenceFragments: [...task.evidenceFragments, action.evidence],
+        evidenceFragments: [...task.evidenceFragments, structuredClone(action.evidence)],
       });
     }
 

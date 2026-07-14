@@ -39,6 +39,36 @@ describe('annotationReducer', () => {
     expect(tasks[0].pageNumbers).toEqual([2]);
   });
 
+  it('clones added evidence so later caller mutations do not affect reducer state', () => {
+    const tasks = [task()];
+    const addedEvidence = evidence({
+      id: 'evidence-2',
+      pageNumber: 4,
+      originalText: '新增证据',
+      raw: { upstream_note: 'original raw note' },
+    });
+
+    const next = annotationReducer(tasks, {
+      type: 'add-evidence',
+      taskIndex: 0,
+      evidence: addedEvidence,
+    });
+
+    addedEvidence.pageNumber = 9;
+    addedEvidence.originalText = 'mutated outside reducer';
+    addedEvidence.raw.upstream_note = 'mutated raw note';
+
+    expect(next[0].evidenceFragments[1]).toEqual(
+      expect.objectContaining({
+        id: 'evidence-2',
+        pageNumber: 4,
+        originalText: '新增证据',
+        raw: expect.objectContaining({ upstream_note: 'original raw note' }),
+      }),
+    );
+    expect(next[0].pageNumbers).toEqual([2, 4]);
+  });
+
   it('updates evidence immutably and recalculates sorted distinct pages', () => {
     const tasks = [
       task({
@@ -64,6 +94,31 @@ describe('annotationReducer', () => {
     expect(tasks[0].evidenceFragments[0].pageNumber).toBe(5);
     expect(tasks[0].evidenceFragments[0].originalText).toBe('原文证据');
     expect(tasks[0].pageNumbers).toEqual([2, 5]);
+  });
+
+  it('recalculates page numbers from sorted distinct positive non-null evidence pages', () => {
+    const tasks = [
+      task({
+        evidenceFragments: [
+          evidence({ id: 'negative', pageNumber: -1 }),
+          evidence({ id: 'zero', pageNumber: 0 }),
+          evidence({ id: 'null', pageNumber: null }),
+          evidence({ id: 'five', pageNumber: 5 }),
+          evidence({ id: 'two-a', pageNumber: 2 }),
+          evidence({ id: 'two-b', pageNumber: 2 }),
+        ],
+        pageNumbers: [99],
+      }),
+    ];
+
+    const next = annotationReducer(tasks, {
+      type: 'update-evidence',
+      taskIndex: 0,
+      evidenceId: 'five',
+      patch: { originalText: 'changed' },
+    });
+
+    expect(next[0].pageNumbers).toEqual([2, 5]);
   });
 
   it('removes evidence without mutating the original evidence array', () => {

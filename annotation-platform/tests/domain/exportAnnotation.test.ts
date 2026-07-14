@@ -17,12 +17,15 @@ const parsedDocument = () => {
 };
 
 describe('buildExportObject', () => {
-  it('preserves root, task, and evidence extension fields while exporting canonical edits', () => {
+  it('preserves extension fields while canonical task and evidence fields overwrite conflicting raw values', () => {
     const document = parsedDocument();
 
     document.tasks[0].verificationStatus = 'incorrect';
-    document.tasks[0].pageNumbers = [2];
+    document.tasks[0].pageNumbers = [2, 5];
+    document.tasks[0].raw.verification_status = '[正确]';
+    document.tasks[0].raw.page_numbers = [99];
     document.tasks[0].evidenceFragments[0].pageNumber = 2;
+    document.tasks[0].evidenceFragments[0].raw.page_number = '99';
     document.tasks[0].evidenceFragments[0].originalText = '导出后的证据';
     document.tasks[0].evidenceFragments[0].evidenceRole = '直接证据';
     document.tasks[0].judgmentBasis = '导出依据';
@@ -36,7 +39,28 @@ describe('buildExportObject', () => {
         .upstream_note,
     ).toBe('preserve me');
     expect((exported.output as Array<Record<string, unknown>>)[0].verification_status).toBe('[错误]');
-    expect((exported.output as Array<Record<string, unknown>>)[0].page_numbers).toEqual([2]);
+    expect((exported.output as Array<Record<string, unknown>>)[0].page_numbers).toEqual([2, 5]);
+    expect(
+      (((exported.output as Array<Record<string, unknown>>)[0].evidence_fragments as Array<Record<string, unknown>>)[0])
+        .page_number,
+    ).toBe('2');
+  });
+
+  it('maps null canonical status and evidence page numbers to empty export strings', () => {
+    const document = parsedDocument();
+
+    document.tasks[0].verificationStatus = null;
+    document.tasks[0].raw.verification_status = '[错误]';
+    document.tasks[0].evidenceFragments[0].pageNumber = null;
+    document.tasks[0].evidenceFragments[0].raw.page_number = '7';
+
+    const exported = buildExportObject(document);
+
+    expect((exported.output as Array<Record<string, unknown>>)[0].verification_status).toBe('');
+    expect(
+      (((exported.output as Array<Record<string, unknown>>)[0].evidence_fragments as Array<Record<string, unknown>>)[0])
+        .page_number,
+    ).toBe('');
   });
 });
 
