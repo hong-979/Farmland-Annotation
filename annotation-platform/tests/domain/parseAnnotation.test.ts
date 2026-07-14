@@ -42,6 +42,20 @@ describe('parseAnnotationJson', () => {
     });
   });
 
+  it('rejects a non-object root with the root path', () => {
+    const result = parseAnnotationJson(JSON.stringify([]), 'bad.json', 'fp');
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: 'root.type',
+          path: '$',
+          severity: 'error',
+        }),
+      ],
+    });
+  });
+
   it('rejects a non-object task with the task path', () => {
     const result = parseAnnotationJson(JSON.stringify({ output: [null] }), 'bad.json', 'fp');
     expect(result).toEqual({
@@ -217,5 +231,23 @@ describe('parseAnnotationJson', () => {
         }),
       ],
     });
+  });
+  it('keeps cloned raw snapshots isolated across tasks and root document data', () => {
+    const result = parseAnnotationJson(validRawText, 'synthetic.json', 'fingerprint-1');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    result.document.tasks[0].raw.upstream_task_id = 'mutated-task';
+    result.document.tasks[0].evidenceFragments[0].raw.upstream_note = 'mutated-evidence';
+
+    expect(result.document.originalTasks[0].raw.upstream_task_id).toBe('task-1');
+    expect(result.document.originalTasks[0].evidenceFragments[0].raw.upstream_note).toBe('preserve me');
+    expect((result.document.rawRoot.output as Array<Record<string, unknown>>)[0].upstream_task_id).toBe('task-1');
+    expect(
+      (
+        ((result.document.rawRoot.output as Array<Record<string, unknown>>)[0]
+          .evidence_fragments as Array<Record<string, unknown>>)[0]
+      ).upstream_note,
+    ).toBe('preserve me');
   });
 });
