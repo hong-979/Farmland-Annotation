@@ -93,3 +93,7 @@
 - Task 8 质量审查发现原始任务数组短缺/乱序和非法当前索引可导致崩溃或错误状态；修复提交 `521cd52` 按 `task.index` 配对、安全 baseline 回退并规范化索引，同时改用 `useId` 并补强媒体查询生命周期测试。
 - Task 8 最终验证：目标 15/15、全量 103/103 测试通过，ESLint、TypeScript/Vite 构建和 diff 检查通过；规格与质量复审均批准，无 Critical、Important 或 Minor 未解问题。
 - 下一步：启动 Task 9，实现专家标注与证据编辑器。
+- Task 9 主体提交 `bd06dbc` 完成只读标签/审查要点、三态判断、判断依据、证据 CRUD、严格页码解析、跳转与字段校验定位。
+- Task 9 质量审查发现稳定 task.index 与 reducer 数组位置语义冲突及 radio 多实例冲突；修复提交 `4fe5293` 统一五类 action 的稳定任务身份定位，增加实例级 radio name、ARIA 错误关联、稳定 EvidenceRow ID 与真实 reducer 受控闭环。
+- Task 9 最终验证：reducer+panel 53/53、全量 129/129 测试通过，ESLint、TypeScript/Vite 构建和 diff 检查通过；规格与质量复审批准，无 Critical/Important。
+- 下一步：启动 Task 10，隔离 PDF.js 并实现页码导航。
