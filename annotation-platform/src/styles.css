@@ -19,7 +19,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -81,7 +82,7 @@ h1 {
   font-weight: 400;
 }
 
-.file-field input:focus-visible {
-  outline: 3px solid rgb(43 105 86 / 24%);
+:focus-visible {
+  outline: 3px solid #176b4d;
   outline-offset: 2px;
 }
