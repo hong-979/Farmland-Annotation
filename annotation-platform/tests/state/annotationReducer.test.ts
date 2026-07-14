@@ -23,7 +23,33 @@ const task = (overrides: Partial<AnnotationTask> = {}): AnnotationTask => ({
   ...overrides,
 });
 
+const invalidPageNumbers = [
+  0,
+  -1,
+  1.5,
+  Number.NaN,
+  Number.POSITIVE_INFINITY,
+  Number.NEGATIVE_INFINITY,
+  Number.MAX_SAFE_INTEGER + 1,
+];
+
 describe('annotationReducer', () => {
+  it.each([-1, 1, 0.5, Number.NaN])(
+    'returns the original task list for invalid task index %s',
+    (taskIndex) => {
+      const tasks = [task({ pageNumbers: [99] })];
+
+      const next = annotationReducer(tasks, {
+        type: 'set-status',
+        taskIndex,
+        status: 'incorrect',
+      });
+
+      expect(next).toBe(tasks);
+      expect(tasks[0].pageNumbers).toEqual([99]);
+    },
+  );
+
   it('adds evidence without mutating the input task list', () => {
     const tasks = [task()];
     const next = annotationReducer(tasks, {
@@ -37,6 +63,18 @@ describe('annotationReducer', () => {
     expect(next[0].pageNumbers).toEqual([2, 4]);
     expect(tasks[0].evidenceFragments).toHaveLength(1);
     expect(tasks[0].pageNumbers).toEqual([2]);
+  });
+
+  it.each(invalidPageNumbers)('ignores invalid page number %s when adding evidence', (pageNumber) => {
+    const tasks = [task()];
+
+    const next = annotationReducer(tasks, {
+      type: 'add-evidence',
+      taskIndex: 0,
+      evidence: evidence({ id: 'evidence-2', pageNumber }),
+    });
+
+    expect(next[0].pageNumbers).toEqual([2]);
   });
 
   it('clones added evidence so later caller mutations do not affect reducer state', () => {
@@ -67,6 +105,41 @@ describe('annotationReducer', () => {
       }),
     );
     expect(next[0].pageNumbers).toEqual([2, 4]);
+  });
+
+  it('returns the original task list when updating an unknown evidence id', () => {
+    const tasks = [task({ pageNumbers: [99] })];
+
+    const next = annotationReducer(tasks, {
+      type: 'update-evidence',
+      taskIndex: 0,
+      evidenceId: 'missing',
+      patch: { pageNumber: 5 },
+    });
+
+    expect(next).toBe(tasks);
+    expect(tasks[0].pageNumbers).toEqual([99]);
+  });
+
+  it.each(invalidPageNumbers)('ignores invalid page number %s when updating evidence', (pageNumber) => {
+    const tasks = [
+      task({
+        evidenceFragments: [
+          evidence({ id: 'target', pageNumber: 4 }),
+          evidence({ id: 'valid', pageNumber: 2 }),
+        ],
+        pageNumbers: [2, 4],
+      }),
+    ];
+
+    const next = annotationReducer(tasks, {
+      type: 'update-evidence',
+      taskIndex: 0,
+      evidenceId: 'target',
+      patch: { pageNumber },
+    });
+
+    expect(next[0].pageNumbers).toEqual([2]);
   });
 
   it('updates evidence immutably and recalculates sorted distinct pages', () => {
@@ -119,6 +192,19 @@ describe('annotationReducer', () => {
     });
 
     expect(next[0].pageNumbers).toEqual([2, 5]);
+  });
+
+  it('returns the original task list when removing an unknown evidence id', () => {
+    const tasks = [task({ pageNumbers: [99] })];
+
+    const next = annotationReducer(tasks, {
+      type: 'remove-evidence',
+      taskIndex: 0,
+      evidenceId: 'missing',
+    });
+
+    expect(next).toBe(tasks);
+    expect(tasks[0].pageNumbers).toEqual([99]);
   });
 
   it('removes evidence without mutating the original evidence array', () => {

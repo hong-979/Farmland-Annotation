@@ -44,6 +44,30 @@ describe('buildExportObject', () => {
       (((exported.output as Array<Record<string, unknown>>)[0].evidence_fragments as Array<Record<string, unknown>>)[0])
         .page_number,
     ).toBe('2');
+    expect(
+      (((exported.output as Array<Record<string, unknown>>)[0].evidence_fragments as Array<Record<string, unknown>>)[0])
+        .original_text,
+    ).toBe('导出后的证据');
+    expect(
+      (((exported.output as Array<Record<string, unknown>>)[0].evidence_fragments as Array<Record<string, unknown>>)[0])
+        .evidence_role,
+    ).toBe('直接证据');
+    expect((exported.output as Array<Record<string, unknown>>)[0].judgment_basis).toBe('导出依据');
+  });
+
+  it.each([
+    ['correct', '[正确]'],
+    ['incorrect', '[错误]'],
+    ['not_applicable', '[未涉及]'],
+    [null, ''],
+  ] as const)('maps canonical status %s to %s', (status, expected) => {
+    const document = parsedDocument();
+    document.tasks[0].verificationStatus = status;
+    document.tasks[0].raw.verification_status = '[错误]';
+
+    const exported = buildExportObject(document);
+
+    expect((exported.output as Array<Record<string, unknown>>)[0].verification_status).toBe(expected);
   });
 
   it('maps null canonical status and evidence page numbers to empty export strings', () => {
@@ -61,6 +85,33 @@ describe('buildExportObject', () => {
       (((exported.output as Array<Record<string, unknown>>)[0].evidence_fragments as Array<Record<string, unknown>>)[0])
         .page_number,
     ).toBe('');
+  });
+
+  it('deep-clones nested root, task, and evidence extension objects', () => {
+    const document = parsedDocument();
+    document.rawRoot.root_extension = { nested: { value: 'root' } };
+    document.tasks[0].raw.task_extension = { nested: { value: 'task' } };
+    document.tasks[0].evidenceFragments[0].raw.evidence_extension = {
+      nested: { value: 'evidence' },
+    };
+
+    const exported = buildExportObject(document);
+    const exportedTask = (exported.output as Array<Record<string, unknown>>)[0];
+    const exportedEvidence = (exportedTask.evidence_fragments as Array<Record<string, unknown>>)[0];
+    const exportedRootExtension = exported.root_extension as Record<string, unknown>;
+    const exportedTaskExtension = exportedTask.task_extension as Record<string, unknown>;
+    const exportedEvidenceExtension = exportedEvidence.evidence_extension as Record<string, unknown>;
+    const sourceRootExtension = document.rawRoot.root_extension as Record<string, unknown>;
+    const sourceTaskExtension = document.tasks[0].raw.task_extension as Record<string, unknown>;
+    const sourceEvidenceExtension = document.tasks[0].evidenceFragments[0].raw
+      .evidence_extension as Record<string, unknown>;
+
+    expect(exportedRootExtension).not.toBe(sourceRootExtension);
+    expect(exportedTaskExtension).not.toBe(sourceTaskExtension);
+    expect(exportedEvidenceExtension).not.toBe(sourceEvidenceExtension);
+    expect(exportedRootExtension.nested).not.toBe(sourceRootExtension.nested);
+    expect(exportedTaskExtension.nested).not.toBe(sourceTaskExtension.nested);
+    expect(exportedEvidenceExtension.nested).not.toBe(sourceEvidenceExtension.nested);
   });
 });
 

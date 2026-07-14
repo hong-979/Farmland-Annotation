@@ -22,49 +22,111 @@ const recalculatePages = (task: AnnotationTask): AnnotationTask => ({
   pageNumbers: [
     ...new Set(
       task.evidenceFragments.flatMap((evidence) =>
-        evidence.pageNumber !== null && evidence.pageNumber > 0 ? [evidence.pageNumber] : [],
+        evidence.pageNumber !== null &&
+        Number.isSafeInteger(evidence.pageNumber) &&
+        evidence.pageNumber > 0
+          ? [evidence.pageNumber]
+          : [],
       ),
     ),
   ].sort((left, right) => left - right),
 });
 
+const taskAtIndex = (tasks: AnnotationTask[], taskIndex: number): AnnotationTask | undefined =>
+  Number.isInteger(taskIndex) && taskIndex >= 0 && taskIndex < tasks.length
+    ? tasks[taskIndex]
+    : undefined;
+
+const replaceTaskAtIndex = (
+  tasks: AnnotationTask[],
+  taskIndex: number,
+  nextTask: AnnotationTask,
+): AnnotationTask[] => tasks.map((task, index) => (index === taskIndex ? nextTask : task));
+
+function assertNever(action: never): never {
+  throw new Error(`Unhandled annotation action: ${JSON.stringify(action)}`);
+}
+
 export function annotationReducer(tasks: AnnotationTask[], action: AnnotationAction): AnnotationTask[] {
-  if (action.type === 'replace-tasks') {
-    return structuredClone(action.tasks);
+  switch (action.type) {
+    case 'replace-tasks':
+      return structuredClone(action.tasks);
+
+    case 'set-status': {
+      const task = taskAtIndex(tasks, action.taskIndex);
+      return task === undefined
+        ? tasks
+        : replaceTaskAtIndex(tasks, action.taskIndex, {
+            ...task,
+            verificationStatus: action.status,
+          });
+    }
+
+    case 'set-basis': {
+      const task = taskAtIndex(tasks, action.taskIndex);
+      return task === undefined
+        ? tasks
+        : replaceTaskAtIndex(tasks, action.taskIndex, {
+            ...task,
+            judgmentBasis: action.value,
+          });
+    }
+
+    case 'add-evidence': {
+      const task = taskAtIndex(tasks, action.taskIndex);
+      return task === undefined
+        ? tasks
+        : replaceTaskAtIndex(
+            tasks,
+            action.taskIndex,
+            recalculatePages({
+              ...task,
+              evidenceFragments: [...task.evidenceFragments, structuredClone(action.evidence)],
+            }),
+          );
+    }
+
+    case 'update-evidence': {
+      const task = taskAtIndex(tasks, action.taskIndex);
+      if (
+        task === undefined ||
+        !task.evidenceFragments.some((item) => item.id === action.evidenceId)
+      ) {
+        return tasks;
+      }
+
+      return replaceTaskAtIndex(
+        tasks,
+        action.taskIndex,
+        recalculatePages({
+          ...task,
+          evidenceFragments: task.evidenceFragments.map((item) =>
+            item.id === action.evidenceId ? { ...item, ...action.patch } : item,
+          ),
+        }),
+      );
+    }
+
+    case 'remove-evidence': {
+      const task = taskAtIndex(tasks, action.taskIndex);
+      if (
+        task === undefined ||
+        !task.evidenceFragments.some((item) => item.id === action.evidenceId)
+      ) {
+        return tasks;
+      }
+
+      return replaceTaskAtIndex(
+        tasks,
+        action.taskIndex,
+        recalculatePages({
+          ...task,
+          evidenceFragments: task.evidenceFragments.filter((item) => item.id !== action.evidenceId),
+        }),
+      );
+    }
+
+    default:
+      return assertNever(action);
   }
-
-  return tasks.map((task, index) => {
-    if (index !== action.taskIndex) {
-      return task;
-    }
-
-    if (action.type === 'set-status') {
-      return { ...task, verificationStatus: action.status };
-    }
-
-    if (action.type === 'set-basis') {
-      return { ...task, judgmentBasis: action.value };
-    }
-
-    if (action.type === 'add-evidence') {
-      return recalculatePages({
-        ...task,
-        evidenceFragments: [...task.evidenceFragments, structuredClone(action.evidence)],
-      });
-    }
-
-    if (action.type === 'update-evidence') {
-      return recalculatePages({
-        ...task,
-        evidenceFragments: task.evidenceFragments.map((item) =>
-          item.id === action.evidenceId ? { ...item, ...action.patch } : item,
-        ),
-      });
-    }
-
-    return recalculatePages({
-      ...task,
-      evidenceFragments: task.evidenceFragments.filter((item) => item.id !== action.evidenceId),
-    });
-  });
 }
