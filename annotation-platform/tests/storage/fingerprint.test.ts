@@ -21,6 +21,14 @@ describe('fingerprintBytes', () => {
       await fingerprintBytes(encoder.encode('b')),
     );
   });
+
+  it('hashes only the bytes inside an offset view', async () => {
+    const backingBytes = new Uint8Array([0x78, 0x61, 0x62, 0x63, 0x79]);
+
+    await expect(fingerprintBytes(backingBytes.subarray(1, 4))).resolves.toBe(
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    );
+  });
 });
 
 describe('readUtf8JsonFile', () => {

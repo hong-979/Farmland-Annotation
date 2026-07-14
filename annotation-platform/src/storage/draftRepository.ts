@@ -22,10 +22,12 @@ export interface DraftRepository {
 export class IndexedDbDraftRepository implements DraftRepository {
   private readonly database: Promise<IDBPDatabase<DraftDatabase>>;
 
-  constructor(databaseName = DEFAULT_DATABASE_NAME) {
-    this.database = openDB<DraftDatabase>(databaseName, DATABASE_VERSION, {
+  constructor(databaseName = DEFAULT_DATABASE_NAME, databaseVersion = DATABASE_VERSION) {
+    this.database = openDB<DraftDatabase>(databaseName, databaseVersion, {
       upgrade(database) {
-        database.createObjectStore(DRAFT_STORE_NAME, { keyPath: 'fingerprint' });
+        if (!database.objectStoreNames.contains(DRAFT_STORE_NAME)) {
+          database.createObjectStore(DRAFT_STORE_NAME, { keyPath: 'fingerprint' });
+        }
       },
     });
   }

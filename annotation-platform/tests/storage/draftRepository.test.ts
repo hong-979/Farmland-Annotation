@@ -1,3 +1,4 @@
+import { openDB } from 'idb';
 import { describe, expect, it } from 'vitest';
 
 import type { DraftPayload } from '../../src/domain/types';
@@ -44,6 +45,24 @@ describe('IndexedDbDraftRepository', () => {
     await drafts.save(payload);
 
     await expect(drafts.load(payload.fingerprint)).resolves.toEqual(payload);
+  });
+
+  it('preserves an existing drafts store and its records during a version upgrade', async () => {
+    const databaseName = `draft-repository-migration-${databaseSequence++}`;
+    const payload = draft();
+    const existingDatabase = await openDB(databaseName, 1, {
+      upgrade(database) {
+        database.createObjectStore('drafts', { keyPath: 'fingerprint' }).put(payload);
+      },
+    });
+    existingDatabase.close();
+
+    const drafts = new IndexedDbDraftRepository(databaseName, 2);
+
+    await expect(drafts.load(payload.fingerprint)).resolves.toEqual(payload);
+    const upgradedDatabase = await openDB(databaseName);
+    expect(upgradedDatabase.version).toBe(2);
+    upgradedDatabase.close();
   });
 
   it('returns null when the requested fingerprint has no draft', async () => {
@@ -105,5 +124,24 @@ describe('IndexedDbDraftRepository', () => {
 
     await expect(drafts.load(target.fingerprint)).resolves.toBeNull();
     await expect(drafts.load(retained.fingerprint)).resolves.toEqual(retained);
+  });
+
+  it('shares saved and removed drafts across repository instances for the same database', async () => {
+    const databaseName = `draft-repository-shared-${databaseSequence++}`;
+    const firstInstance = new IndexedDbDraftRepository(databaseName);
+    const secondInstance = new IndexedDbDraftRepository(databaseName);
+    const target = draft();
+    const retained = draft({
+      fingerprint: 'b'.repeat(64),
+      sourceName: 'retained.json',
+    });
+    await firstInstance.save(target);
+    await firstInstance.save(retained);
+
+    await expect(secondInstance.load(target.fingerprint)).resolves.toEqual(target);
+    await secondInstance.remove(target.fingerprint);
+
+    await expect(firstInstance.load(target.fingerprint)).resolves.toBeNull();
+    await expect(firstInstance.load(retained.fingerprint)).resolves.toEqual(retained);
   });
 });
