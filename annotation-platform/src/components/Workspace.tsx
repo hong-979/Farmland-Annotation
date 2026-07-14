@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { ReactNode } from 'react';
 
 interface WorkspaceProps {
@@ -9,13 +9,13 @@ interface WorkspaceProps {
 }
 
 const narrowWorkspaceQuery = '(max-width: 1179px)';
-const taskListId = 'workspace-task-list';
 
 function isNarrowWorkspace() {
   return typeof window.matchMedia === 'function' && window.matchMedia(narrowWorkspaceQuery).matches;
 }
 
 export function Workspace({ toolbar, sidebar, pdfPanel, annotationPanel }: WorkspaceProps) {
+  const taskListId = useId();
   const [narrow, setNarrow] = useState(isNarrowWorkspace);
   const [tasksOpen, setTasksOpen] = useState(false);
   const tasksVisible = !narrow || tasksOpen;

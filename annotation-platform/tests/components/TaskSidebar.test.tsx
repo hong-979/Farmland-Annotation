@@ -117,6 +117,76 @@ describe('TaskSidebar', () => {
     expect(screen.queryByText('已确认')).not.toBeInTheDocument();
   });
 
+  it('uses the current task as a safe baseline when the original task is missing', () => {
+    const current = task({ verificationStatus: 'correct' });
+
+    expect(() =>
+      render(
+        <TaskSidebar
+          tasks={[current]}
+          originalTasks={[]}
+          currentTaskIndex={0}
+          pdfPageCount={20}
+          onSelect={vi.fn()}
+        />,
+      ),
+    ).not.toThrow();
+    expect(screen.getByText('已确认')).toBeInTheDocument();
+  });
+
+  it('matches original tasks by stable task index when arrays have different orders', () => {
+    const tasks = [
+      task({ index: 10, reviewPoint: '任务十', verificationStatus: 'not_applicable' }),
+      task({ index: 20, reviewPoint: '任务二十', verificationStatus: 'not_applicable' }),
+    ];
+    const originalTasks = [
+      task({ index: 20, reviewPoint: '任务二十', verificationStatus: 'not_applicable' }),
+      task({ index: 10, reviewPoint: '任务十', verificationStatus: 'correct' }),
+    ];
+
+    render(
+      <TaskSidebar
+        tasks={tasks}
+        originalTasks={originalTasks}
+        currentTaskIndex={0}
+        pdfPageCount={20}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(within(screen.getByRole('button', { name: /第 1 条/ })).getByText('已修改')).toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: /第 2 条/ })).getByText('已确认')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['negative', -1, '任务 1 / 2', 0],
+    ['past the end', 2, '任务 2 / 2', 1],
+    ['non-integer', 1.8, '任务 2 / 2', 1],
+    ['NaN', Number.NaN, '任务 1 / 2', 0],
+    ['infinity', Number.POSITIVE_INFINITY, '任务 1 / 2', 0],
+  ])(
+    'normalizes a %s current task index to one legal active task',
+    (_case, currentTaskIndex, expectedCount, expectedActiveIndex) => {
+      const tasks = [task({ index: 0 }), task({ index: 1 })];
+
+      render(
+        <TaskSidebar
+          tasks={tasks}
+          originalTasks={tasks}
+          currentTaskIndex={currentTaskIndex}
+          pdfPageCount={null}
+          onSelect={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText(expectedCount)).toBeInTheDocument();
+      const taskButtons = screen.getAllByRole('button', { name: /第 \d+ 条/ });
+      expect(taskButtons.filter((button) => button.hasAttribute('aria-current'))).toEqual([
+        taskButtons[expectedActiveIndex],
+      ]);
+    },
+  );
+
   it('renders an empty-list count without task buttons', () => {
     render(
       <TaskSidebar

@@ -16,6 +16,15 @@ const statusLabels: Record<TaskListStatus, string> = {
   incomplete: '信息不完整',
 };
 
+function normalizeCurrentTaskIndex(currentTaskIndex: number, taskCount: number) {
+  if (taskCount === 0) {
+    return 0;
+  }
+
+  const finiteIndex = Number.isFinite(currentTaskIndex) ? Math.trunc(currentTaskIndex) : 0;
+  return Math.min(Math.max(finiteIndex, 0), taskCount - 1);
+}
+
 export function TaskSidebar({
   tasks,
   originalTasks,
@@ -23,21 +32,24 @@ export function TaskSidebar({
   pdfPageCount,
   onSelect,
 }: TaskSidebarProps) {
-  const currentNumber = tasks.length === 0 ? 0 : currentTaskIndex + 1;
+  const normalizedCurrentTaskIndex = normalizeCurrentTaskIndex(currentTaskIndex, tasks.length);
+  const currentNumber = tasks.length === 0 ? 0 : normalizedCurrentTaskIndex + 1;
+  const originalTasksByIndex = new Map(originalTasks.map((task) => [task.index, task]));
 
   return (
     <nav className="task-sidebar" aria-label="标注任务导航">
       <p className="task-sidebar__count">任务 {currentNumber} / {tasks.length}</p>
       <ol className="task-sidebar__list">
         {tasks.map((task, index) => {
-          const status = deriveTaskListStatus(task, originalTasks[index], pdfPageCount);
+          const originalTask = originalTasksByIndex.get(task.index) ?? task;
+          const status = deriveTaskListStatus(task, originalTask, pdfPageCount);
 
           return (
             <li key={task.index}>
               <button
                 type="button"
                 className="task-sidebar__task"
-                aria-current={index === currentTaskIndex ? 'true' : undefined}
+                aria-current={index === normalizedCurrentTaskIndex ? 'true' : undefined}
                 onClick={() => onSelect(index)}
               >
                 <span className="task-sidebar__task-number">第 {index + 1} 条</span>

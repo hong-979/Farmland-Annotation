@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Workspace } from '../../src/components/Workspace';
@@ -8,20 +8,50 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function useNarrowViewport(matches: boolean) {
+function useViewport(initialMatches: boolean) {
+  let matches = initialMatches;
+  let changeListener: ((event: MediaQueryListEvent) => void) | null = null;
+  const addEventListener = vi.fn(
+    (eventName: string, listener: (event: MediaQueryListEvent) => void) => {
+      if (eventName === 'change') {
+        changeListener = listener;
+      }
+    },
+  );
+  const removeEventListener = vi.fn(
+    (eventName: string, listener: (event: MediaQueryListEvent) => void) => {
+      if (eventName === 'change' && changeListener === listener) {
+        changeListener = null;
+      }
+    },
+  );
+  const mediaQuery = {
+    get matches() {
+      return matches;
+    },
+    media: '(max-width: 1179px)',
+    onchange: null,
+    addEventListener,
+    removeEventListener,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  };
+
   vi.stubGlobal(
     'matchMedia',
-    vi.fn().mockImplementation((query: string) => ({
-      matches,
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
+    vi.fn().mockImplementation(() => mediaQuery),
   );
+
+  return {
+    addEventListener,
+    removeEventListener,
+    getChangeListener: () => changeListener,
+    change(nextMatches: boolean) {
+      matches = nextMatches;
+      changeListener?.({ matches: nextMatches, media: mediaQuery.media } as MediaQueryListEvent);
+    },
+  };
 }
 
 function renderWorkspace() {
@@ -37,7 +67,7 @@ function renderWorkspace() {
 
 describe('Workspace', () => {
   it('renders the approved semantic workspace regions on desktop', () => {
-    useNarrowViewport(false);
+    useViewport(false);
 
     renderWorkspace();
 
@@ -53,7 +83,7 @@ describe('Workspace', () => {
   });
 
   it('toggles only the task list in a viewport below 1180px', async () => {
-    useNarrowViewport(true);
+    useViewport(true);
     const user = userEvent.setup();
 
     renderWorkspace();
@@ -78,5 +108,76 @@ describe('Workspace', () => {
     expect(taskRegion).toBeVisible();
     expect(screen.getByRole('region', { name: 'PDF 原文' })).toBeVisible();
     expect(screen.getByRole('region', { name: '专家标注表单' })).toBeVisible();
+  });
+
+  it('gives each workspace instance a unique task-list control relationship', () => {
+    useViewport(true);
+
+    render(
+      <>
+        <Workspace
+          toolbar={<span>工具一</span>}
+          sidebar={<span>任务一</span>}
+          pdfPanel={<span>PDF 一</span>}
+          annotationPanel={<span>表单一</span>}
+        />
+        <Workspace
+          toolbar={<span>工具二</span>}
+          sidebar={<span>任务二</span>}
+          pdfPanel={<span>PDF 二</span>}
+          annotationPanel={<span>表单二</span>}
+        />
+      </>,
+    );
+
+    const toggles = screen.getAllByRole('button', { name: '显示任务列表' });
+    const controlledIds = toggles.map((toggle) => toggle.getAttribute('aria-controls'));
+    expect(new Set(controlledIds).size).toBe(2);
+
+    toggles.forEach((toggle) => {
+      const localTaskRegion = toggle.closest('.workspace')?.querySelector('aside');
+      expect(localTaskRegion).not.toBeNull();
+      expect(toggle).toHaveAttribute('aria-controls', localTaskRegion?.id);
+    });
+  });
+
+  it('responds to viewport changes, toggles both ways, and removes its listener on unmount', async () => {
+    const viewport = useViewport(false);
+    const user = userEvent.setup();
+    const { unmount } = renderWorkspace();
+    const taskRegion = screen.getByRole('complementary', { name: '标注任务列表' });
+
+    expect(screen.queryByRole('button', { name: /任务列表/ })).not.toBeInTheDocument();
+    expect(taskRegion).toBeVisible();
+
+    act(() => viewport.change(true));
+
+    const toggle = screen.getByRole('button', { name: '显示任务列表' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(taskRegion).not.toBeVisible();
+
+    await user.click(toggle);
+    expect(screen.getByRole('button', { name: '隐藏任务列表' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(taskRegion).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: '隐藏任务列表' }));
+    expect(screen.getByRole('button', { name: '显示任务列表' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(taskRegion).not.toBeVisible();
+
+    act(() => viewport.change(false));
+    expect(screen.queryByRole('button', { name: /任务列表/ })).not.toBeInTheDocument();
+    expect(taskRegion).toBeVisible();
+
+    const subscribedListener = viewport.getChangeListener();
+    expect(viewport.addEventListener).toHaveBeenCalledWith('change', subscribedListener);
+    unmount();
+    expect(viewport.removeEventListener).toHaveBeenCalledWith('change', subscribedListener);
+    expect(viewport.getChangeListener()).toBeNull();
   });
 });
