@@ -80,10 +80,21 @@ export function parseAnnotationJson(
     const missingOptionalFields: string[] = [];
 
     const label = readOptionalText(entry.label, 'label', missingOptionalFields);
-    const verificationStatus = readVerificationStatus(
-      entry.verification_status,
-      missingOptionalFields,
-    );
+    const verificationStatusResult = readVerificationStatus(entry.verification_status);
+    if (verificationStatusResult.missing) {
+      missingOptionalFields.push('verification_status');
+    }
+    if (verificationStatusResult.invalid) {
+      warnings.push(
+        createIssue(
+          'warning',
+          'task.verification_status_invalid',
+          `${path}.verification_status`,
+          'verification_status 无法识别，请重新选择“正确 / 错误 / 未涉及”后再确认。',
+          taskIndex,
+        ),
+      );
+    }
     const judgmentBasis = readOptionalText(
       entry.judgment_basis,
       'judgment_basis',
@@ -94,6 +105,25 @@ export function parseAnnotationJson(
     const evidenceSource = Array.isArray(entry.evidence_fragments) ? entry.evidence_fragments : [];
     if (!Array.isArray(entry.evidence_fragments)) {
       missingOptionalFields.push('evidence_fragments');
+    } else {
+      let hasMalformedEvidence = false;
+      evidenceSource.forEach((evidence, evidenceIndex) => {
+        if (!isJsonRecord(evidence)) {
+          hasMalformedEvidence = true;
+          errors.push(
+            createIssue(
+              'error',
+              'task.evidence_type',
+              `${path}.evidence_fragments[${evidenceIndex}]`,
+              'evidence_fragments 中的每一项都必须是对象，请修正该条证据后重新导入。',
+              taskIndex,
+            ),
+          );
+        }
+      });
+      if (hasMalformedEvidence) {
+        return;
+      }
     }
 
     const evidenceFragments = evidenceSource.map((evidence, evidenceIndex) =>
@@ -121,7 +151,7 @@ export function parseAnnotationJson(
       index: taskIndex,
       label,
       reviewPoint,
-      verificationStatus,
+      verificationStatus: verificationStatusResult.status,
       evidenceFragments,
       judgmentBasis,
       pageNumbers,
@@ -192,14 +222,17 @@ function readOptionalText(
 
 function readVerificationStatus(
   value: unknown,
-  missingFields: string[],
-): VerificationStatus {
+): { status: VerificationStatus; missing: boolean; invalid: boolean } {
   if (typeof value !== 'string') {
-    missingFields.push('verification_status');
-    return null;
+    return { status: null, missing: true, invalid: false };
   }
 
-  return STATUS_MAP[value.trim()] ?? null;
+  const status = STATUS_MAP[value.trim()];
+  if (status) {
+    return { status, missing: false, invalid: false };
+  }
+
+  return { status: null, missing: false, invalid: true };
 }
 
 function normalizePositiveInteger(value: unknown): number | null {
