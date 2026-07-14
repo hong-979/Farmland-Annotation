@@ -86,3 +86,182 @@ h1 {
   outline: 3px solid #176b4d;
   outline-offset: 2px;
 }
+
+.workspace {
+  display: grid;
+  grid-template-areas:
+    "toolbar toolbar toolbar"
+    "tasks pdf annotation";
+  grid-template-columns: minmax(220px, 18%) minmax(480px, 47%) minmax(380px, 35%);
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  min-height: 720px;
+  background: #e8efec;
+}
+
+.workspace__toolbar {
+  grid-area: toolbar;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 10px 20px;
+  border-bottom: 1px solid #cbd9d3;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgb(24 49 42 / 8%);
+  z-index: 4;
+}
+
+.workspace__tasks,
+.workspace__pdf,
+.workspace__annotation {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.workspace__tasks {
+  grid-area: tasks;
+  border-right: 1px solid #cbd9d3;
+  background: #f8fbfa;
+}
+
+.workspace__pdf {
+  grid-area: pdf;
+  background: #dfe7e3;
+}
+
+.workspace__annotation {
+  grid-area: annotation;
+  border-left: 1px solid #cbd9d3;
+  background: #ffffff;
+}
+
+.workspace__task-toggle {
+  display: none;
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 1px solid #9db8ad;
+  border-radius: 8px;
+  color: #18312a;
+  background: #f3f7f5;
+  cursor: pointer;
+}
+
+.task-sidebar {
+  padding: 20px 14px;
+}
+
+.task-sidebar__count {
+  margin: 0 6px 16px;
+  color: #405b52;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.task-sidebar__list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-sidebar__task {
+  display: grid;
+  grid-template-areas:
+    "number status"
+    "summary summary";
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d4e0db;
+  border-radius: 10px;
+  color: #18312a;
+  text-align: left;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.task-sidebar__task:hover {
+  border-color: #83aa9a;
+  background: #f5faf8;
+}
+
+.task-sidebar__task[aria-current="true"] {
+  border-color: #176b4d;
+  box-shadow: inset 3px 0 #176b4d;
+  background: #edf7f3;
+}
+
+.task-sidebar__task-number {
+  grid-area: number;
+  font-weight: 700;
+}
+
+.task-sidebar__summary {
+  grid-area: summary;
+  min-width: 0;
+  overflow: hidden;
+  color: #526860;
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-sidebar__status {
+  grid-area: status;
+  align-self: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.task-sidebar__status--unprocessed {
+  color: #596a64;
+  background: #e8eeeb;
+}
+
+.task-sidebar__status--confirmed {
+  color: #176b4d;
+  background: #dff2e9;
+}
+
+.task-sidebar__status--modified {
+  color: #805900;
+  background: #fff0c7;
+}
+
+.task-sidebar__status--incomplete {
+  color: #9b2f2f;
+  background: #fde5e5;
+}
+
+@media (max-width: 1179px) {
+  .workspace {
+    grid-template-areas:
+      "toolbar toolbar"
+      "pdf annotation";
+    grid-template-columns: minmax(480px, 47fr) minmax(380px, 35fr);
+  }
+
+  .workspace__task-toggle {
+    display: inline-flex;
+  }
+
+  .workspace__task-toggle[hidden] {
+    display: none;
+  }
+
+  .workspace__tasks {
+    grid-area: pdf;
+    width: min(320px, 66%);
+    border-right: 1px solid #b7c9c1;
+    box-shadow: 12px 0 28px rgb(24 49 42 / 18%);
+    z-index: 3;
+  }
+}
