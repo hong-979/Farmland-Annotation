@@ -102,9 +102,21 @@ export function parseAnnotationJson(
       '',
     ) ?? '';
 
+    const hasEvidenceFragments = Object.prototype.hasOwnProperty.call(entry, 'evidence_fragments');
     const evidenceSource = Array.isArray(entry.evidence_fragments) ? entry.evidence_fragments : [];
-    if (!Array.isArray(entry.evidence_fragments)) {
+    if (!hasEvidenceFragments || entry.evidence_fragments === undefined) {
       missingOptionalFields.push('evidence_fragments');
+    } else if (!Array.isArray(entry.evidence_fragments)) {
+      errors.push(
+        createIssue(
+          'error',
+          'task.evidence_fragments_type',
+          `${path}.evidence_fragments`,
+          'evidence_fragments 字段必须是数组，请修正该任务的证据列表格式后重新导入。',
+          taskIndex,
+        ),
+      );
+      return;
     } else {
       let hasMalformedEvidence = false;
       evidenceSource.forEach((evidence, evidenceIndex) => {

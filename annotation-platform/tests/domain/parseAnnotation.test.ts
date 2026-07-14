@@ -85,6 +85,30 @@ describe('parseAnnotationJson', () => {
     expect(result.warnings.map((issue) => issue.code)).toContain('task.optional_fields');
   });
 
+  it('rejects present but non-array evidence_fragments with the field path', () => {
+    const text = JSON.stringify({
+      output: [
+        {
+          review_point: '核对证据字段类型',
+          evidence_fragments: { page_number: 1 },
+        },
+      ],
+    });
+    const result = parseAnnotationJson(text, 'evidence-type.json', 'fp');
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: 'task.evidence_fragments_type',
+          path: '$.output[0].evidence_fragments',
+          severity: 'error',
+          taskIndex: 0,
+          message: 'evidence_fragments 字段必须是数组，请修正该任务的证据列表格式后重新导入。',
+        }),
+      ],
+    });
+  });
+
   it('normalizes page numbers from evidence, deduplicates them, and sorts them', () => {
     const text = JSON.stringify({
       output: [
