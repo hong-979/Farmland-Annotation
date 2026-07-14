@@ -32,10 +32,33 @@ const recalculatePages = (task: AnnotationTask): AnnotationTask => ({
   ].sort((left, right) => left - right),
 });
 
-const taskAtIndex = (tasks: AnnotationTask[], taskIndex: number): AnnotationTask | undefined =>
-  Number.isInteger(taskIndex) && taskIndex >= 0 && taskIndex < tasks.length
-    ? tasks[taskIndex]
-    : undefined;
+interface TaskLocation {
+  arrayIndex: number;
+  task: AnnotationTask;
+}
+
+const locateTaskByStableIndex = (
+  tasks: AnnotationTask[],
+  taskIndex: number,
+): TaskLocation | undefined => {
+  if (!Number.isSafeInteger(taskIndex) || taskIndex < 0) {
+    return undefined;
+  }
+
+  let match: TaskLocation | undefined;
+  for (let arrayIndex = 0; arrayIndex < tasks.length; arrayIndex += 1) {
+    const task = tasks[arrayIndex];
+    if (task.index !== taskIndex) {
+      continue;
+    }
+    if (match !== undefined) {
+      return undefined;
+    }
+    match = { arrayIndex, task };
+  }
+
+  return match;
+};
 
 const replaceTaskAtIndex = (
   tasks: AnnotationTask[],
@@ -53,54 +76,57 @@ export function annotationReducer(tasks: AnnotationTask[], action: AnnotationAct
       return structuredClone(action.tasks);
 
     case 'set-status': {
-      const task = taskAtIndex(tasks, action.taskIndex);
-      return task === undefined
+      const location = locateTaskByStableIndex(tasks, action.taskIndex);
+      return location === undefined
         ? tasks
-        : replaceTaskAtIndex(tasks, action.taskIndex, {
-            ...task,
+        : replaceTaskAtIndex(tasks, location.arrayIndex, {
+            ...location.task,
             verificationStatus: action.status,
           });
     }
 
     case 'set-basis': {
-      const task = taskAtIndex(tasks, action.taskIndex);
-      return task === undefined
+      const location = locateTaskByStableIndex(tasks, action.taskIndex);
+      return location === undefined
         ? tasks
-        : replaceTaskAtIndex(tasks, action.taskIndex, {
-            ...task,
+        : replaceTaskAtIndex(tasks, location.arrayIndex, {
+            ...location.task,
             judgmentBasis: action.value,
           });
     }
 
     case 'add-evidence': {
-      const task = taskAtIndex(tasks, action.taskIndex);
-      return task === undefined
+      const location = locateTaskByStableIndex(tasks, action.taskIndex);
+      return location === undefined
         ? tasks
         : replaceTaskAtIndex(
             tasks,
-            action.taskIndex,
+            location.arrayIndex,
             recalculatePages({
-              ...task,
-              evidenceFragments: [...task.evidenceFragments, structuredClone(action.evidence)],
+              ...location.task,
+              evidenceFragments: [
+                ...location.task.evidenceFragments,
+                structuredClone(action.evidence),
+              ],
             }),
           );
     }
 
     case 'update-evidence': {
-      const task = taskAtIndex(tasks, action.taskIndex);
+      const location = locateTaskByStableIndex(tasks, action.taskIndex);
       if (
-        task === undefined ||
-        !task.evidenceFragments.some((item) => item.id === action.evidenceId)
+        location === undefined ||
+        !location.task.evidenceFragments.some((item) => item.id === action.evidenceId)
       ) {
         return tasks;
       }
 
       return replaceTaskAtIndex(
         tasks,
-        action.taskIndex,
+        location.arrayIndex,
         recalculatePages({
-          ...task,
-          evidenceFragments: task.evidenceFragments.map((item) =>
+          ...location.task,
+          evidenceFragments: location.task.evidenceFragments.map((item) =>
             item.id === action.evidenceId ? { ...item, ...action.patch } : item,
           ),
         }),
@@ -108,20 +134,22 @@ export function annotationReducer(tasks: AnnotationTask[], action: AnnotationAct
     }
 
     case 'remove-evidence': {
-      const task = taskAtIndex(tasks, action.taskIndex);
+      const location = locateTaskByStableIndex(tasks, action.taskIndex);
       if (
-        task === undefined ||
-        !task.evidenceFragments.some((item) => item.id === action.evidenceId)
+        location === undefined ||
+        !location.task.evidenceFragments.some((item) => item.id === action.evidenceId)
       ) {
         return tasks;
       }
 
       return replaceTaskAtIndex(
         tasks,
-        action.taskIndex,
+        location.arrayIndex,
         recalculatePages({
-          ...task,
-          evidenceFragments: task.evidenceFragments.filter((item) => item.id !== action.evidenceId),
+          ...location.task,
+          evidenceFragments: location.task.evidenceFragments.filter(
+            (item) => item.id !== action.evidenceId,
+          ),
         }),
       );
     }

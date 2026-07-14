@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { AnnotationTask, ValidationIssue } from '../domain/types';
 import type { AnnotationAction } from '../state/annotationReducer';
 import { EvidenceEditor } from './EvidenceEditor';
@@ -20,13 +21,13 @@ function issuesAtPath(issues: ValidationIssue[], taskIndex: number, path: string
   return issues.filter((issue) => issue.taskIndex === taskIndex && issue.path === path);
 }
 
-function IssueMessages({ issues }: { issues: ValidationIssue[] }) {
+function IssueMessages({ issues, id }: { issues: ValidationIssue[]; id: string }) {
   if (issues.length === 0) {
     return null;
   }
 
   return (
-    <ul>
+    <ul id={id}>
       {issues.map((issue) => (
         <li key={`${issue.code}:${issue.path}:${issue.message}`}>{issue.message}</li>
       ))}
@@ -41,6 +42,7 @@ export function AnnotationPanel({
   onJumpToPage,
   onSaveAndNext,
 }: AnnotationPanelProps) {
+  const radioGroupId = useId();
   const statusIssues = issuesAtPath(
     issues,
     task.index,
@@ -54,6 +56,12 @@ export function AnnotationPanel({
   const hasCurrentTaskError = issues.some(
     (issue) => issue.taskIndex === task.index && issue.severity === 'error',
   );
+  const statusIssueListId = `${radioGroupId}-status-issues`;
+  const basisIssueListId = `${radioGroupId}-basis-issues`;
+  const statusDescribedBy = statusIssues.length > 0 ? statusIssueListId : undefined;
+  const basisDescribedBy = basisIssues.length > 0 ? basisIssueListId : undefined;
+  const statusInvalid = statusIssues.some((issue) => issue.severity === 'error');
+  const basisInvalid = basisIssues.some((issue) => issue.severity === 'error');
 
   return (
     <section aria-label="专家标注">
@@ -62,15 +70,20 @@ export function AnnotationPanel({
         <h2>审查要点</h2>
         <p>{task.reviewPoint}</p>
       </article>
-      <fieldset>
+      <fieldset
+        aria-describedby={statusDescribedBy}
+        aria-invalid={statusInvalid ? true : undefined}
+      >
         <legend>专家判断</legend>
         {decisions.map((decision) => (
           <label key={decision.value}>
             <input
               type="radio"
-              name={`task-${task.index}-verification-status`}
+              name={`${radioGroupId}-task-${task.index}-verification-status`}
               value={decision.value}
               checked={task.verificationStatus === decision.value}
+              aria-describedby={statusDescribedBy}
+              aria-invalid={statusInvalid ? true : undefined}
               onChange={() =>
                 onAction({
                   type: 'set-status',
@@ -82,19 +95,21 @@ export function AnnotationPanel({
             {decision.label}
           </label>
         ))}
-        <IssueMessages issues={statusIssues} />
+        <IssueMessages issues={statusIssues} id={statusIssueListId} />
       </fieldset>
       <div>
         <label>
           判断依据
           <textarea
             value={task.judgmentBasis}
+            aria-describedby={basisDescribedBy}
+            aria-invalid={basisInvalid ? true : undefined}
             onChange={(event) =>
               onAction({ type: 'set-basis', taskIndex: task.index, value: event.target.value })
             }
           />
         </label>
-        <IssueMessages issues={basisIssues} />
+        <IssueMessages issues={basisIssues} id={basisIssueListId} />
       </div>
       <EvidenceEditor
         taskIndex={task.index}

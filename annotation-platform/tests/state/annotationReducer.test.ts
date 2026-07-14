@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { annotationReducer } from '../../src/state/annotationReducer';
+import type { AnnotationAction } from '../../src/state/annotationReducer';
 import type { AnnotationTask, EvidenceFragment } from '../../src/domain/types';
 
 const evidence = (overrides: Partial<EvidenceFragment> = {}): EvidenceFragment => ({
@@ -33,7 +34,101 @@ const invalidPageNumbers = [
   Number.MAX_SAFE_INTEGER + 1,
 ];
 
+const stableTaskActionCases = (
+  taskIndex: number,
+): Array<{
+  name: string;
+  action: AnnotationAction;
+  assertChangedTask(changedTask: AnnotationTask): void;
+}> => [
+  {
+    name: 'set-status',
+    action: { type: 'set-status', taskIndex, status: 'incorrect' },
+    assertChangedTask: (changedTask) =>
+      expect(changedTask.verificationStatus).toBe('incorrect'),
+  },
+  {
+    name: 'set-basis',
+    action: { type: 'set-basis', taskIndex, value: '稳定任务依据' },
+    assertChangedTask: (changedTask) =>
+      expect(changedTask.judgmentBasis).toBe('稳定任务依据'),
+  },
+  {
+    name: 'add-evidence',
+    action: {
+      type: 'add-evidence',
+      taskIndex,
+      evidence: evidence({ id: 'added-evidence', pageNumber: 4 }),
+    },
+    assertChangedTask: (changedTask) =>
+      expect(changedTask.evidenceFragments.map((item) => item.id)).toContain('added-evidence'),
+  },
+  {
+    name: 'update-evidence',
+    action: {
+      type: 'update-evidence',
+      taskIndex,
+      evidenceId: 'evidence-1',
+      patch: { originalText: '稳定任务的新原文' },
+    },
+    assertChangedTask: (changedTask) =>
+      expect(changedTask.evidenceFragments[0].originalText).toBe('稳定任务的新原文'),
+  },
+  {
+    name: 'remove-evidence',
+    action: { type: 'remove-evidence', taskIndex, evidenceId: 'evidence-1' },
+    assertChangedTask: (changedTask) => expect(changedTask.evidenceFragments).toEqual([]),
+  },
+];
+
 describe('annotationReducer', () => {
+  it.each(stableTaskActionCases(10))(
+    'targets a task at array position zero by stable index for $name',
+    ({ action, assertChangedTask }) => {
+      const tasks = [task({ index: 10 })];
+
+      const next = annotationReducer(tasks, action);
+
+      expect(next).not.toBe(tasks);
+      assertChangedTask(next[0]);
+    },
+  );
+
+  it('edits only the matching stable task after tasks are reordered', () => {
+    const tasks = [
+      task({ index: 20, judgmentBasis: '任务二十' }),
+      task({ index: 10, judgmentBasis: '任务十' }),
+    ];
+
+    const next = annotationReducer(tasks, {
+      type: 'set-basis',
+      taskIndex: 10,
+      value: '只修改任务十',
+    });
+
+    expect(next[0]).toBe(tasks[0]);
+    expect(next[0].judgmentBasis).toBe('任务二十');
+    expect(next[1].judgmentBasis).toBe('只修改任务十');
+  });
+
+  it.each(stableTaskActionCases(0))(
+    'returns the original list when $name targets a missing stable index',
+    ({ action }) => {
+      const tasks = [task({ index: 10 })];
+
+      expect(annotationReducer(tasks, action)).toBe(tasks);
+    },
+  );
+
+  it.each(stableTaskActionCases(1))(
+    'returns the original list when $name targets a duplicate stable index',
+    ({ action }) => {
+      const tasks = [task({ index: 1 }), task({ index: 1 })];
+
+      expect(annotationReducer(tasks, action)).toBe(tasks);
+    },
+  );
+
   it.each([-1, 1, 0.5, Number.NaN])(
     'returns the original task list for invalid task index %s',
     (taskIndex) => {
