@@ -85,3 +85,7 @@
 - 同一修复补齐非零偏移 `Uint8Array` 指纹测试，以及同名数据库下多个 repository 实例的共享保存、读取与删除测试。
 - Task 6 最终验证：定向 12/12、全量 80/80 测试通过，ESLint、TypeScript/Vite 构建和 diff 检查通过；规格与质量复审均批准，无 Critical、Important 或 Minor 未解问题。
 - 下一步：启动 Task 7，实现本地 JSON/PDF 导入界面与可操作错误反馈。
+- Task 7 主体提交 `0bf9f99` 完成本地 JSON/PDF 选择、文件名、提交门控、中文 issues、严格 JSON 读取/解析和 PDF object URL 生命周期；成功状态保存 AnnotationDocument、URL 与文件标量 metadata，不读取 PDF bytes。
+- Task 7 生命周期修复提交 `56ed61f` 通过 TDD 增加 mounted/generation guard，防止 pending 导入在卸载后创建 URL，或旧导入覆盖新导入状态。
+- Task 7 最终验证：目标 9/9、全量 88/88 测试通过，ESLint、TypeScript/Vite 构建和 diff 检查通过；规格审查通过，质量审查无 Critical/Important。非阻塞建议是在后续 App 编排时补强并发逆序完成、失败保留旧 URL 和 createObjectURL 抛错的回归覆盖。
+- 下一步：启动 Task 8，实现三栏工作台与任务导航。

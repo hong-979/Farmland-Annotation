@@ -26,9 +26,9 @@
 - 按批准的实施计划开发。
 - 验证专家端核心流程和数据持久化。
 
-当前状态：已在隔离工作树 `expert-annotation-platform` 上完成 Task 1（脚手架）、Task 2（领域契约与合成夹具）、Task 3（JSON 解析与标准化）、Task 4（任务校验与任务列表派生状态）、Task 5（不可变编辑和安全 JSON 导出）与 Task 6（SHA-256 文件指纹和 IndexedDB 草稿隔离），并通过子代理实现、规格审查、代码质量审查和本地验证闭环。
+当前状态：已在隔离工作树 `expert-annotation-platform` 上完成 Task 1（脚手架）、Task 2（领域契约与合成夹具）、Task 3（JSON 解析与标准化）、Task 4（任务校验与任务列表派生状态）、Task 5（不可变编辑和安全 JSON 导出）、Task 6（SHA-256 文件指纹和 IndexedDB 草稿隔离）与 Task 7（本地 JSON/PDF 导入和可操作错误反馈），并通过子代理实现、规格审查、代码质量审查和本地验证闭环。
 
-下一步：执行 Task 7，实现本地 JSON/PDF 导入界面与可操作错误反馈。
+下一步：执行 Task 8，实现三栏工作台与任务导航。
 
 ## 关键约束
 
