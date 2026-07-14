@@ -1,0 +1,87 @@
+:root {
+  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC",
+    "Source Han Sans SC", system-ui, sans-serif;
+  color: #18312a;
+  background: #f3f7f5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 1024px;
+  min-height: 100vh;
+  margin: 0;
+  background: #f3f7f5;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.import-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 64px;
+}
+
+.import-card {
+  width: min(680px, 100%);
+  padding: 56px;
+  border: 1px solid #dce8e2;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgb(24 49 42 / 10%);
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: #487064;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+h1 {
+  margin: 0;
+  font-size: 2.25rem;
+  line-height: 1.2;
+}
+
+.privacy-note {
+  margin: 20px 0 36px;
+  color: #526860;
+  line-height: 1.75;
+}
+
+.file-fields {
+  display: grid;
+  gap: 24px;
+}
+
+.file-field {
+  display: grid;
+  gap: 10px;
+  color: #18312a;
+  font-weight: 700;
+}
+
+.file-field input {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #b9ccc4;
+  border-radius: 10px;
+  color: #334c44;
+  background: #f8fbfa;
+  font-weight: 400;
+}
+
+.file-field input:focus-visible {
+  outline: 3px solid rgb(43 105 86 / 24%);
+  outline-offset: 2px;
+}
