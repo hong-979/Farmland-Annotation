@@ -97,3 +97,8 @@
 - Task 9 质量审查发现稳定 task.index 与 reducer 数组位置语义冲突及 radio 多实例冲突；修复提交 `4fe5293` 统一五类 action 的稳定任务身份定位，增加实例级 radio name、ARIA 错误关联、稳定 EvidenceRow ID 与真实 reducer 受控闭环。
 - Task 9 最终验证：reducer+panel 53/53、全量 129/129 测试通过，ESLint、TypeScript/Vite 构建和 diff 检查通过；规格与质量复审批准，无 Critical/Important。
 - 下一步：启动 Task 10，隔离 PDF.js 并实现页码导航。
+- Task 10 主体提交 `b96e850` 完成 PDF.js adapter、页码/缩放/适宽控制和外部页码跳转。
+- Task 10 质量审查发现同 canvas 并发 render 竞态；修复提交 `cc0737d` 增加可取消 render handle、按 canvas 串行化、StrictMode/快速切换防护、错误恢复与非法页数空态。
+- Task 10 最终验证：目标 19/19、全量 148/148 测试通过，ESLint、TypeScript/Vite 构建和 diff 检查通过；规格与质量复审批准，无 Critical/Important。
+- 用户手工检验确认导入成功后仍停留在导入页；根因是 Task 11 尚未接线，`App` 无条件返回 `FileImportScreen`。
+- 下一步：启动 Task 11，编排完整工作台、自动保存、草稿恢复与 JSON 导出。
