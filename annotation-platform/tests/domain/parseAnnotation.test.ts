@@ -7,12 +7,14 @@ describe('parseAnnotationJson', () => {
     const result = parseAnnotationJson(validRawText, 'synthetic.json', 'fingerprint-1');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
+    expect(result.document.tasks[0].index).toBe(0);
     expect(result.document.tasks[0]).toMatchObject({
       label: '水资源',
       reviewPoint: '核对可供水量是否包含计算过程。',
       verificationStatus: 'incorrect',
       pageNumbers: [2],
     });
+    expect(result.document.tasks[0].evidenceFragments[0].id).toBe('task-0-evidence-0');
     expect(result.document.tasks[0].raw.upstream_task_id).toBe('task-1');
     expect(result.document.tasks[0].evidenceFragments[0].raw.upstream_note).toBe('preserve me');
   });
@@ -164,6 +166,33 @@ describe('parseAnnotationJson', () => {
         message: 'verification_status 无法识别，请重新选择“正确 / 错误 / 未涉及”后再确认。',
       }),
     );
+  });
+
+  it('warns when verification_status is present but not a string', () => {
+    const text = JSON.stringify({
+      output: [
+        {
+          label: '状态字段类型',
+          review_point: '核对状态字段类型',
+          verification_status: 1,
+          evidence_fragments: [],
+          judgment_basis: '',
+        },
+      ],
+    });
+    const result = parseAnnotationJson(text, 'status-type.json', 'fp');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.tasks[0].verificationStatus).toBeNull();
+    expect(result.warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'task.verification_status_invalid',
+        path: '$.output[0].verification_status',
+        severity: 'warning',
+        taskIndex: 0,
+      }),
+    );
+    expect(result.warnings.map((issue) => issue.code)).not.toContain('task.optional_fields');
   });
 
   it('rejects a malformed evidence item with the evidence path', () => {

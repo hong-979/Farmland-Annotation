@@ -80,7 +80,11 @@ export function parseAnnotationJson(
     const missingOptionalFields: string[] = [];
 
     const label = readOptionalText(entry.label, 'label', missingOptionalFields);
-    const verificationStatusResult = readVerificationStatus(entry.verification_status);
+    const hasVerificationStatus = Object.prototype.hasOwnProperty.call(entry, 'verification_status');
+    const verificationStatusResult = readVerificationStatus(
+      entry.verification_status,
+      hasVerificationStatus,
+    );
     if (verificationStatusResult.missing) {
       missingOptionalFields.push('verification_status');
     }
@@ -234,9 +238,14 @@ function readOptionalText(
 
 function readVerificationStatus(
   value: unknown,
+  hasField: boolean,
 ): { status: VerificationStatus; missing: boolean; invalid: boolean } {
-  if (typeof value !== 'string') {
+  if (!hasField || value === undefined) {
     return { status: null, missing: true, invalid: false };
+  }
+
+  if (typeof value !== 'string') {
+    return { status: null, missing: false, invalid: true };
   }
 
   const status = STATUS_MAP[value.trim()];
