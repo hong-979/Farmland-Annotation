@@ -75,11 +75,36 @@ const draftPayload: DraftPayload = {
   savedAt: '2026-07-14T00:00:00.000Z',
 };
 
+// @ts-expect-error VerificationStatus must remain a closed union.
+const invalidVerificationStatus: VerificationStatus = 'pending';
+// @ts-expect-error TaskListStatus must remain a closed union.
+const invalidTaskListStatus: TaskListStatus = 'done';
+const invalidValidationIssueSeverity: ValidationIssue = {
+  ...validationIssue,
+  // @ts-expect-error ValidationIssue.severity must remain 'error' | 'warning'.
+  severity: 'info',
+};
+const impossibleParseSuccess: ParseSuccess = {
+  // @ts-expect-error ParseSuccess.ok must remain the true discriminant.
+  ok: false,
+  document: annotationDocument,
+  warnings: [validationIssue],
+};
+const impossibleParseFailure: ParseFailure = {
+  // @ts-expect-error ParseFailure.ok must remain the false discriminant.
+  ok: true,
+  errors: [validationIssue],
+};
 const invalidDraftPayload: DraftPayload = {
   ...draftPayload,
   // @ts-expect-error DraftPayload.savedAt must be a string timestamp.
   savedAt: 123,
 };
+void invalidVerificationStatus;
+void invalidTaskListStatus;
+void invalidValidationIssueSeverity;
+void impossibleParseSuccess;
+void impossibleParseFailure;
 void invalidDraftPayload;
 
 describe('domain contracts', () => {
