@@ -1,0 +1,9 @@
+.worktrees/
+.superpowers/
+.agents/
+annotation-platform/node_modules/
+annotation-platform/dist/
+annotation-platform/coverage/
+annotation-platform/test-results/
+annotation-platform/playwright-report/
+
