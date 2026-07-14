@@ -89,3 +89,7 @@
 - Task 7 生命周期修复提交 `56ed61f` 通过 TDD 增加 mounted/generation guard，防止 pending 导入在卸载后创建 URL，或旧导入覆盖新导入状态。
 - Task 7 最终验证：目标 9/9、全量 88/88 测试通过，ESLint、TypeScript/Vite 构建和 diff 检查通过；规格审查通过，质量审查无 Critical/Important。非阻塞建议是在后续 App 编排时补强并发逆序完成、失败保留旧 URL 和 createObjectURL 抛错的回归覆盖。
 - 下一步：启动 Task 8，实现三栏工作台与任务导航。
+- Task 8 主体提交 `1bf3405` 完成 TaskSidebar、Workspace、精确三栏布局与窄屏任务栏切换；初始目标 6/6、全量 94/94。
+- Task 8 质量审查发现原始任务数组短缺/乱序和非法当前索引可导致崩溃或错误状态；修复提交 `521cd52` 按 `task.index` 配对、安全 baseline 回退并规范化索引，同时改用 `useId` 并补强媒体查询生命周期测试。
+- Task 8 最终验证：目标 15/15、全量 103/103 测试通过，ESLint、TypeScript/Vite 构建和 diff 检查通过；规格与质量复审均批准，无 Critical、Important 或 Minor 未解问题。
+- 下一步：启动 Task 9，实现专家标注与证据编辑器。
