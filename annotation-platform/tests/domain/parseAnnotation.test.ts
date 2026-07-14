@@ -14,13 +14,21 @@ describe('parseAnnotationJson', () => {
       pageNumbers: [2],
     });
     expect(result.document.tasks[0].raw.upstream_task_id).toBe('task-1');
+    expect(result.document.tasks[0].evidenceFragments[0].raw.upstream_note).toBe('preserve me');
   });
 
   it('reports invalid JSON with a Chinese actionable message', () => {
     const result = parseAnnotationJson('{bad', 'bad.json', 'fp');
     expect(result).toEqual({
       ok: false,
-      errors: [expect.objectContaining({ code: 'json.syntax', path: '$', severity: 'error' })],
+      errors: [
+        expect.objectContaining({
+          code: 'json.syntax',
+          path: '$',
+          severity: 'error',
+          message: 'JSON 解析失败，请检查文件格式是否完整且符合 JSON 语法。',
+        }),
+      ],
     });
   });
 
