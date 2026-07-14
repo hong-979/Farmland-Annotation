@@ -46,3 +46,37 @@
 - 设计文档状态已更新为用户已审阅并批准；等待用户选择实施执行方式。
 - 用户选择子代理逐任务执行，并授权初始化 Git 与创建隔离工作树。
 - 已初始化 Git；`.worktrees/`、可视化草图和前端构建产物均已配置为忽略，准备提交实施前基线。
+- 在隔离工作树 `expert-annotation-platform` 中确认 Task 1 脚手架已完成，包含 Vite React 壳层、Vitest 配置和初始提交。
+- 已按 `subagent-driven-development` 启动 Task 2，并以独立实现代理负责 `src/domain/types.ts`、`tests/fixtures.ts` 与最小契约测试。
+- Task 2 首轮实现提交 `df59e6e` 完成领域类型和合成夹具；`npm test` 与 `npm run build` 通过。
+- 规格审查通过后，代码质量审查先后指出三类问题：契约测试依赖源码字符串、未锁死联合类型/判别字段、类型断言未纳入标准 `tsc -b` 验证链路。
+- 已通过两轮跟进提交修复上述问题：`afb6f5f` 改为直接导入与类型赋值校验，`6ec3d4e` 增加 `@ts-expect-error` 负向断言锁定联合类型与判别字段。
+- 为将测试侧类型断言纳入常规构建，新增 `annotation-platform/tsconfig.tests.json` 并接入根 `tsconfig.json` 引用；提交 `6ddc0ff`。
+- 验证结果：`npm test -- tests/domainContracts.test.ts`、`npm test`、`npm run build`、`npx tsc -b --verbose` 全部通过，且 `tsconfig.tests.json` 已进入标准 TypeScript build 图。
+- 处理一次 Git 提交锁竞争：并行执行 `git add` 与 `git commit` 后出现 `index.lock`，确认锁自动释放后改为串行提交，工作树保持干净。
+- Task 2 现已通过实现、规格审查、最终代码质量复审和本地验证闭环；下一步启动 Task 3 的解析器实现。
+- 已按 `subagent-driven-development` 启动 Task 3，并将写入范围限制在 `src/domain/parseAnnotation.ts` 与 `tests/domain/parseAnnotation.test.ts`。
+- Task 3 初版提交 `eaca844` 完成 JSON 解析与规范化主逻辑；定向解析测试与 `npm run build` 通过。
+- 随后两轮规格/质量审查暴露的覆盖与边界问题包括：未断言中文错误消息、未校验 `evidence.raw` 保留、未知状态值静默归零、数组内非法证据与字段类型错误的区分不充分，以及若干显式规则分支缺少回归测试。
+- 已通过连续跟进提交修复并收紧 Task 3：
+  - `ade5e41`：补强中文错误消息与 `evidence.raw` 保留断言；
+  - `80acfcc`：未知 `verification_status` 产生专用 warning，数组内非法证据项阻断导入，并补齐分支测试；
+  - `57e15a7`：区分 `evidence_fragments` 缺失与类型错误，字段存在但非数组时返回 `task.evidence_fragments_type` 错误；
+  - `2f2a2d9`：将“存在但非字符串”的 `verification_status` 纳入专用 invalid warning 路径，并锁定索引型 `task.index` / `evidence.id` 规则；
+  - `2b398e8`：补充 `root.type` 与深拷贝隔离回归测试。
+- Task 3 最终验证结果：`npm test -- tests/domain/parseAnnotation.test.ts` 通过 13 个测试；`npm test -- tests/domainContracts.test.ts tests/domain/parseAnnotation.test.ts` 通过 15 个测试；`npm run build` 持续通过。
+- Task 3 规格复审最终通过；代码质量复审最后一轮仅剩轻量测试缺口，现已通过 `2b398e8` 补齐。当前无阻塞或重要未解问题。
+- 下一步：启动 Task 4，实现 `validateTask` 与 `deriveTaskListStatus`。
+- 已按 `subagent-driven-development` 启动 Task 4，并将写入范围限制在 `src/domain/validateTask.ts` 与 `tests/domain/validateTask.test.ts`。
+- Task 4 首轮提交 `aa6e3e8` 完成校验器与任务列表状态派生；`npm test -- tests/domain/validateTask.test.ts` 和 `npm test -- tests/domain` 通过。
+- Task 4 规格复审通过后，代码质量复审指出问题集中在测试约束不够强，而不是实现逻辑错误：缺少 `evidence.page_invalid`、`trim()`、`pdfPageCount === null`、全部四种任务状态、非可编辑字段不影响状态等分支覆盖，而且代表性用例没有锁定完整 issue 对象。
+- 已通过测试增强提交 `d66462a` 补齐上述分支与契约断言，覆盖精确 issue 对象、`unprocessed` / `incomplete` / `confirmed` / `modified` 四种状态、以及 `label` / `reviewPoint` / `pageNumbers` / `raw` / `evidence.id` 不影响状态的规则。
+- Task 4 最终验证结果：`npm test -- tests/domain/validateTask.test.ts` 通过 14 个测试；`npm test -- tests/domain` 通过 29 个测试；`npm run build` 通过。
+- Task 4 最终规格复审与代码质量复审均通过，当前无阻塞或重要未解问题。
+- 下一步：启动 Task 5，实现不可变编辑 reducer 与安全 JSON 导出。
+- Task 5 主体提交 `85d53e3` 完成不可变 reducer、未知字段保留、安全 JSON 合并、状态/页码导出和完整/部分文件名生成。
+- Task 5 质量加固提交 `b053c96` 深克隆新增证据、过滤非正页码并补强规范字段覆盖和空值导出测试。
+- 代码质量审查发现无效 reducer 目标伪造状态变化及小数/无穷页码可进入摘要；提交 `90f87ef` 通过 TDD 修复为引用保持 no-op、正安全整数过滤和穷尽 switch，并扩展全部状态映射与别名隔离测试。
+- 对“label/review_point 应由 canonical 覆盖 raw”的建议依据设计规格作出技术驳回：二者明确只读且原样保留；最终质量复审撤回该问题。
+- Task 5 最终验证：定向 37/37、全量 68/68 测试通过，ESLint、TypeScript/Vite 构建和 diff 检查通过；规格与质量复审均批准。
+- 下一步：启动 Task 6，实现 SHA-256 文件指纹与 IndexedDB 草稿隔离。
