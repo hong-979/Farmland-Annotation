@@ -80,3 +80,8 @@
 - 对“label/review_point 应由 canonical 覆盖 raw”的建议依据设计规格作出技术驳回：二者明确只读且原样保留；最终质量复审撤回该问题。
 - Task 5 最终验证：定向 37/37、全量 68/68 测试通过，ESLint、TypeScript/Vite 构建和 diff 检查通过；规格与质量复审均批准。
 - 下一步：启动 Task 6，实现 SHA-256 文件指纹与 IndexedDB 草稿隔离。
+- Task 6 主体提交 `01b2a2c` 完成精确 JSON 字节 SHA-256、严格 UTF-8 单次读取和 IndexedDB 草稿保存、读取、覆盖与定向删除；草稿只持久化 `DraftPayload`，不包含 PDF 数据。
+- Task 6 质量复审发现 IndexedDB 升级回调无条件创建既有 `drafts` store，会在未来数据库版本升级时中止事务；提交 `004979e` 通过 TDD 增加 store 存在性保护和真实 v1→v2 迁移回归测试。
+- 同一修复补齐非零偏移 `Uint8Array` 指纹测试，以及同名数据库下多个 repository 实例的共享保存、读取与删除测试。
+- Task 6 最终验证：定向 12/12、全量 80/80 测试通过，ESLint、TypeScript/Vite 构建和 diff 检查通过；规格与质量复审均批准，无 Critical、Important 或 Minor 未解问题。
+- 下一步：启动 Task 7，实现本地 JSON/PDF 导入界面与可操作错误反馈。
