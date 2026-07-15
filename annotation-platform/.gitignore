@@ -12,6 +12,10 @@ dist
 dist-server
 dist-ssr
 .data
+.codex-logs
+.env
+.env.local
+.env.*.local
 *.local
 
 # Editor directories and files

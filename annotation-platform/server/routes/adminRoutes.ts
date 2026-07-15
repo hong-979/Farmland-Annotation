@@ -204,6 +204,91 @@ export function createAdminRoutes({
     },
   );
 
+  router.get('/documents', (_request, response) => {
+    const database = databaseProvider.getDatabase();
+    const documents = database
+      .prepare(
+        `
+          SELECT
+            documents.id,
+            documents.title,
+            documents.task_count AS taskCount,
+            documents.created_at AS createdAt,
+            SUM(CASE WHEN tasks.status = 'pending' THEN 1 ELSE 0 END) AS pendingCount,
+            SUM(CASE WHEN tasks.status = 'claimed' THEN 1 ELSE 0 END) AS claimedCount,
+            SUM(CASE WHEN tasks.status = 'submitted' THEN 1 ELSE 0 END) AS submittedCount
+          FROM documents
+          LEFT JOIN tasks ON tasks.document_id = documents.id
+          GROUP BY documents.id
+          ORDER BY documents.id DESC
+        `,
+      )
+      .all();
+
+    response.status(200).json({ documents });
+  });
+
+  router.get('/documents/:id/tasks', (request, response) => {
+    const documentId = Number.parseInt(request.params.id, 10);
+
+    if (!Number.isInteger(documentId)) {
+      response.status(400).json({ error: '文档参数不正确。' });
+      return;
+    }
+
+    const database = databaseProvider.getDatabase();
+    const tasks = database
+      .prepare(
+        `
+          SELECT
+            id,
+            task_index AS taskIndex,
+            label,
+            review_point AS reviewPoint,
+            status,
+            claimed_by AS claimedBy,
+            claimed_at AS claimedAt,
+            submitted_by AS submittedBy,
+            submitted_at AS submittedAt,
+            updated_at AS updatedAt
+          FROM tasks
+          WHERE document_id = ?
+          ORDER BY task_index ASC
+        `,
+      )
+      .all(documentId);
+
+    response.status(200).json({ tasks });
+  });
+
+  router.get('/tasks/:taskId/history', (request, response) => {
+    const taskId = Number.parseInt(request.params.taskId, 10);
+
+    if (!Number.isInteger(taskId)) {
+      response.status(400).json({ error: '任务参数不正确。' });
+      return;
+    }
+
+    const database = databaseProvider.getDatabase();
+    const history = database
+      .prepare(
+        `
+          SELECT
+            id,
+            actor_user_id AS actorUserId,
+            action_type AS actionType,
+            snapshot_json AS snapshotJson,
+            created_at AS createdAt
+          FROM task_history
+          WHERE task_id = ?
+          ORDER BY id ASC
+        `,
+      )
+      .all(taskId);
+
+    response.status(200).json({ history });
+  });
+
   router.post('/tasks/:taskId/reclaim', (request, response) => {
     const taskId = Number.parseInt(request.params.taskId, 10);
 

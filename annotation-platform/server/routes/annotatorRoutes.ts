@@ -8,6 +8,28 @@ type AnnotatorRoutesOptions = {
   environment?: NodeJS.ProcessEnv;
 };
 
+type TaskRecord = {
+  id: number;
+  documentId: number;
+  taskIndex: number;
+  label: string | null;
+  reviewPoint: string;
+  status: string;
+  claimedBy: number | null;
+  currentPayloadJson: string;
+};
+
+type DocumentSummary = {
+  id: number;
+  title: string;
+  taskCount: number;
+};
+
+type ClaimedDocumentSession = {
+  document: DocumentSummary;
+  tasks: Array<ReturnType<typeof withPayload>>;
+};
+
 export function createAnnotatorRoutes({
   databaseProvider,
   environment = process.env,
@@ -21,30 +43,20 @@ export function createAnnotatorRoutes({
   router.post('/tasks/claim-next', (request, response) => {
     const database = databaseProvider.getDatabase();
     const userId = request.authenticatedUser!.id;
-    const currentTask = findCurrentClaimedTask(database, userId);
+    const currentSession = findCurrentClaimedDocumentSession(database, userId);
 
-    if (currentTask) {
+    if (currentSession) {
       response.status(409).json({
-        error: '当前已有未提交任务，请先完成后再领取下一条。',
+        error: '当前已有未提交文件，请先完成后再领取下一份。',
       });
       return;
     }
 
-    const pendingTask = database
-      .prepare(
-        `
-          SELECT id
-          FROM tasks
-          WHERE status = 'pending'
-          ORDER BY document_id ASC, task_index ASC
-          LIMIT 1
-        `,
-      )
-      .get() as { id: number } | undefined;
+    const pendingDocument = findNextPendingDocument(database);
 
-    if (!pendingTask) {
+    if (!pendingDocument) {
       response.status(404).json({
-        error: '当前没有可领取的待处理任务。',
+        error: '当前没有可领取的待处理文件。',
       });
       return;
     }
@@ -58,47 +70,52 @@ export function createAnnotatorRoutes({
             claimed_by = ?,
             claimed_at = CURRENT_TIMESTAMP,
             updated_at = CURRENT_TIMESTAMP
-          WHERE id = ? AND status = 'pending'
+          WHERE document_id = ? AND status = 'pending'
         `,
       )
-      .run(userId, pendingTask.id);
+      .run(userId, pendingDocument.id);
 
     if (claimResult.changes === 0) {
       response.status(409).json({
-        error: '任务已被其他人领取，请刷新后重试。',
+        error: '文件已被其他标注员领取，请刷新后重试。',
       });
       return;
     }
 
-    const claimedTask = getTaskForAnnotator(database, pendingTask.id, userId);
+    const claimedSession = getClaimedDocumentSession(database, pendingDocument.id, userId);
 
-    if (!claimedTask) {
+    if (!claimedSession) {
       response.status(500).json({
-        error: '任务领取成功后读取详情失败，请重试。',
+        error: '文件领取成功后读取详情失败，请重试。',
       });
       return;
     }
 
-    database
-      .prepare(
-        `
-          INSERT INTO task_history (task_id, actor_user_id, action_type, snapshot_json)
-          VALUES (?, ?, 'claim', ?)
-        `,
-      )
-      .run(claimedTask.id, userId, JSON.stringify(claimedTask.payload));
+    const insertHistoryStatement = database.prepare(
+      `
+        INSERT INTO task_history (task_id, actor_user_id, action_type, snapshot_json)
+        VALUES (?, ?, 'claim', ?)
+      `,
+    );
+
+    for (const task of claimedSession.tasks) {
+      insertHistoryStatement.run(task.id, userId, JSON.stringify(task.payload));
+    }
 
     response.status(200).json({
-      task: serializeTask(claimedTask),
+      session: serializeDocumentSession(claimedSession),
     });
   });
 
   router.get('/tasks/current', (request, response) => {
     const database = databaseProvider.getDatabase();
-    const currentTask = findCurrentClaimedTask(database, request.authenticatedUser!.id);
+    const currentSession = findCurrentClaimedDocumentSession(
+      database,
+      request.authenticatedUser!.id,
+    );
 
     response.status(200).json({
-      task: currentTask ? serializeTask(currentTask) : null,
+      session: currentSession ? serializeDocumentSession(currentSession) : null,
     });
   });
 
@@ -215,19 +232,86 @@ export function createAnnotatorRoutes({
   return router;
 }
 
-type TaskRecord = {
-  id: number;
-  documentId: number;
-  taskIndex: number;
-  label: string | null;
-  reviewPoint: string;
-  status: string;
-  claimedBy: number | null;
-  currentPayloadJson: string;
-};
+function findNextPendingDocument(database: ReturnType<DatabaseProvider['getDatabase']>) {
+  return database
+    .prepare(
+      `
+        SELECT
+          documents.id,
+          documents.title,
+          documents.task_count AS taskCount
+        FROM documents
+        WHERE EXISTS (
+          SELECT 1
+          FROM tasks
+          WHERE tasks.document_id = documents.id
+            AND tasks.status = 'pending'
+        )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM tasks
+            WHERE tasks.document_id = documents.id
+              AND tasks.status <> 'pending'
+          )
+        ORDER BY documents.id ASC
+        LIMIT 1
+      `,
+    )
+    .get() as DocumentSummary | undefined;
+}
 
-function findCurrentClaimedTask(database: ReturnType<DatabaseProvider['getDatabase']>, userId: number) {
-  const task = database
+function findCurrentClaimedDocumentSession(
+  database: ReturnType<DatabaseProvider['getDatabase']>,
+  userId: number,
+) {
+  const document = database
+    .prepare(
+      `
+        SELECT
+          documents.id,
+          documents.title,
+          documents.task_count AS taskCount
+        FROM documents
+        INNER JOIN tasks ON tasks.document_id = documents.id
+        WHERE tasks.claimed_by = ? AND tasks.status = 'claimed'
+        GROUP BY documents.id
+        ORDER BY documents.id ASC
+        LIMIT 1
+      `,
+    )
+    .get(userId) as DocumentSummary | undefined;
+
+  if (!document) {
+    return null;
+  }
+
+  return getClaimedDocumentSession(database, document.id, userId);
+}
+
+function getClaimedDocumentSession(
+  database: ReturnType<DatabaseProvider['getDatabase']>,
+  documentId: number,
+  userId: number,
+) {
+  const document = database
+    .prepare(
+      `
+        SELECT
+          id,
+          title,
+          task_count AS taskCount
+        FROM documents
+        WHERE id = ?
+        LIMIT 1
+      `,
+    )
+    .get(documentId) as DocumentSummary | undefined;
+
+  if (!document) {
+    return null;
+  }
+
+  const tasks = database
     .prepare(
       `
         SELECT
@@ -240,14 +324,20 @@ function findCurrentClaimedTask(database: ReturnType<DatabaseProvider['getDataba
           claimed_by AS claimedBy,
           current_payload_json AS currentPayloadJson
         FROM tasks
-        WHERE claimed_by = ? AND status = 'claimed'
-        ORDER BY id ASC
-        LIMIT 1
+        WHERE document_id = ? AND claimed_by = ? AND status = 'claimed'
+        ORDER BY task_index ASC
       `,
     )
-    .get(userId) as TaskRecord | undefined;
+    .all(documentId, userId) as TaskRecord[];
 
-  return task ? withPayload(task) : null;
+  if (tasks.length === 0) {
+    return null;
+  }
+
+  return {
+    document,
+    tasks: tasks.map(withPayload),
+  } satisfies ClaimedDocumentSession;
 }
 
 function getTaskForAnnotator(
@@ -284,9 +374,7 @@ function withPayload(task: TaskRecord) {
   };
 }
 
-function serializeTask(
-  task: ReturnType<typeof withPayload>,
-) {
+function serializeTask(task: ReturnType<typeof withPayload>) {
   return {
     id: task.id,
     documentId: task.documentId,
@@ -296,6 +384,17 @@ function serializeTask(
     status: task.status,
     claimedBy: task.claimedBy,
     payload: task.payload,
+  };
+}
+
+function serializeDocumentSession(session: ClaimedDocumentSession) {
+  return {
+    document: {
+      id: session.document.id,
+      title: session.document.title,
+      taskCount: session.document.taskCount,
+    },
+    tasks: session.tasks.map(serializeTask),
   };
 }
 
@@ -310,7 +409,7 @@ function validateSubmitPayload(payload: Record<string, unknown>) {
   const judgmentBasis =
     typeof payload.judgment_basis === 'string' ? payload.judgment_basis.trim() : '';
 
-  if (payload.verification_status === '[閿欒]') {
+  if (payload.verification_status === '[错误]') {
     if (evidenceFragments.length === 0 || judgmentBasis.length === 0) {
       return '判断为错误时，至少需要一条证据并填写判断依据。';
     }

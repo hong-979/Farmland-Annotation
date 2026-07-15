@@ -38,7 +38,10 @@ export function TaskSidebar({
 
   return (
     <nav className="task-sidebar" aria-label="标注任务导航">
-      <p className="task-sidebar__count">任务 {currentNumber} / {tasks.length}</p>
+      <div className="task-sidebar__header">
+        <p className="task-sidebar__eyebrow">文件任务</p>
+        <p className="task-sidebar__count">任务 {currentNumber} / {tasks.length}</p>
+      </div>
       <ol className="task-sidebar__list">
         {tasks.map((task, index) => {
           const originalTask = originalTasksByIndex.get(task.index) ?? task;
@@ -53,11 +56,11 @@ export function TaskSidebar({
                 onClick={() => onSelect(index)}
               >
                 <span className="task-sidebar__task-number">第 {index + 1} 条</span>
-                <span className="task-sidebar__summary" title={task.reviewPoint}>
-                  {task.reviewPoint}
-                </span>
                 <span className={`task-sidebar__status task-sidebar__status--${status}`}>
                   {statusLabels[status]}
+                </span>
+                <span className="task-sidebar__summary" title={task.reviewPoint}>
+                  {task.reviewPoint}
                 </span>
               </button>
             </li>

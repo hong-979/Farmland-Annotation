@@ -453,4 +453,119 @@ describe('admin routes', () => {
       error: '文档尚未全部提交，暂时不能导出完整结果。',
     });
   });
+
+  it('lists document summaries, document tasks, and task history for the admin dashboard', async () => {
+    const runningServer = await startServer(createEnvironment());
+    servers.push(runningServer.server);
+
+    const adminCookie = await loginAsAdmin(runningServer);
+
+    const formData = new FormData();
+    formData.set('title', 'Dashboard Document');
+    formData.set(
+      'jsonFile',
+      new Blob(
+        [
+          JSON.stringify({
+            output: [
+              {
+                label: 'water',
+                review_point: 'Dashboard task',
+                verification_status: '',
+                evidence_fragments: [],
+                judgment_basis: '',
+              },
+            ],
+          }),
+        ],
+        { type: 'application/json' },
+      ),
+      'dashboard.json',
+    );
+    formData.set(
+      'pdfFile',
+      new Blob([await createPdfBytes('Dashboard PDF')], { type: 'application/pdf' }),
+      'dashboard.pdf',
+    );
+
+    const uploadResponse = await fetch(`${runningServer.baseUrl}/api/admin/documents`, {
+      method: 'POST',
+      headers: {
+        cookie: adminCookie,
+      },
+      body: formData,
+    });
+    const uploaded = (await uploadResponse.json()) as { document: { id: number } };
+
+    const database = new DatabaseSync(runningServer.environment.ANNOTATION_DB_PATH!);
+    const task = database
+      .prepare(`SELECT id FROM tasks WHERE document_id = ? LIMIT 1`)
+      .get(uploaded.document.id) as { id: number };
+    const adminUser = database
+      .prepare(`SELECT id FROM users WHERE username = ? LIMIT 1`)
+      .get('admin') as { id: number };
+    database
+      .prepare(
+        `
+          INSERT INTO task_history (task_id, actor_user_id, action_type, snapshot_json)
+          VALUES (?, ?, 'submit', ?)
+        `,
+      )
+      .run(task.id, adminUser.id, JSON.stringify({ status: 'submitted' }));
+    database.close();
+
+    const listDocumentsResponse = await fetch(`${runningServer.baseUrl}/api/admin/documents`, {
+      headers: { cookie: adminCookie },
+    });
+
+    expect(listDocumentsResponse.status).toBe(200);
+    await expect(listDocumentsResponse.json()).resolves.toEqual({
+      documents: expect.arrayContaining([
+        expect.objectContaining({
+          id: uploaded.document.id,
+          title: 'Dashboard Document',
+          taskCount: 1,
+          pendingCount: 1,
+          claimedCount: 0,
+          submittedCount: 0,
+        }),
+      ]),
+    });
+
+    const listTasksResponse = await fetch(
+      `${runningServer.baseUrl}/api/admin/documents/${uploaded.document.id}/tasks`,
+      {
+        headers: { cookie: adminCookie },
+      },
+    );
+
+    expect(listTasksResponse.status).toBe(200);
+    const taskListBody = (await listTasksResponse.json()) as {
+      tasks: Array<{ id: number; reviewPoint: string; status: string }>;
+    };
+    expect(taskListBody.tasks).toEqual([
+      expect.objectContaining({
+        id: task.id,
+        reviewPoint: 'Dashboard task',
+        status: 'pending',
+      }),
+    ]);
+
+    const historyResponse = await fetch(
+      `${runningServer.baseUrl}/api/admin/tasks/${task.id}/history`,
+      {
+        headers: { cookie: adminCookie },
+      },
+    );
+
+    expect(historyResponse.status).toBe(200);
+    await expect(historyResponse.json()).resolves.toEqual({
+      history: [
+        expect.objectContaining({
+          actionType: 'submit',
+          actorUserId: adminUser.id,
+        }),
+      ],
+    });
+  });
 });

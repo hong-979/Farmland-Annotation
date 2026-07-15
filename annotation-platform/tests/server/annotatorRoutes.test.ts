@@ -117,7 +117,12 @@ async function createAnnotator(
   expect(response.status).toBe(201);
 }
 
-async function uploadDocument(runningServer: RunningServer, adminCookie: string, title: string) {
+async function uploadDocument(
+  runningServer: RunningServer,
+  adminCookie: string,
+  title: string,
+  taskCount = 1,
+) {
   const formData = new FormData();
   formData.set('title', title);
   formData.set(
@@ -125,15 +130,13 @@ async function uploadDocument(runningServer: RunningServer, adminCookie: string,
     new Blob(
       [
         JSON.stringify({
-          output: [
-            {
-              label: 'water',
-              review_point: 'Check water item',
-              verification_status: '',
-              evidence_fragments: [],
-              judgment_basis: '',
-            },
-          ],
+          output: Array.from({ length: taskCount }, (_, index) => ({
+            label: `label-${index + 1}`,
+            review_point: `Check ${title} item ${index + 1}`,
+            verification_status: '',
+            evidence_fragments: [],
+            judgment_basis: '',
+          })),
         }),
       ],
       { type: 'application/json' },
@@ -165,13 +168,13 @@ describe('annotator routes', () => {
     await Promise.all(servers.splice(0).map((server) => stopServer(server)));
   });
 
-  it('rejects claim-next when the annotator already has a claimed task', async () => {
+  it('rejects claim-next when the annotator already has a claimed document', async () => {
     const runningServer = await startServer(createEnvironment());
     servers.push(runningServer.server);
 
     const adminCookie = await login(runningServer, 'admin', 'S3curePassw0rd!');
     await createAnnotator(runningServer, adminCookie);
-    await uploadDocument(runningServer, adminCookie, 'first-doc');
+    await uploadDocument(runningServer, adminCookie, 'first-doc', 2);
     await uploadDocument(runningServer, adminCookie, 'second-doc');
 
     const annotatorCookie = await login(runningServer, 'annotator-1', 'AnnotatorPass1!');
@@ -183,6 +186,26 @@ describe('annotator routes', () => {
       },
     });
     expect(firstClaimResponse.status).toBe(200);
+    await expect(firstClaimResponse.json()).resolves.toEqual({
+      session: {
+        document: expect.objectContaining({
+          title: 'first-doc',
+          taskCount: 2,
+        }),
+        tasks: [
+          expect.objectContaining({
+            taskIndex: 0,
+            status: 'claimed',
+            reviewPoint: 'Check first-doc item 1',
+          }),
+          expect.objectContaining({
+            taskIndex: 1,
+            status: 'claimed',
+            reviewPoint: 'Check first-doc item 2',
+          }),
+        ],
+      },
+    });
 
     const secondClaimResponse = await fetch(`${runningServer.baseUrl}/api/annotator/tasks/claim-next`, {
       method: 'POST',
@@ -192,17 +215,17 @@ describe('annotator routes', () => {
     });
     expect(secondClaimResponse.status).toBe(409);
     await expect(secondClaimResponse.json()).resolves.toEqual({
-      error: '当前已有未提交任务，请先完成后再领取下一条。',
+      error: '当前已有未提交文件，请先完成后再领取下一份。',
     });
   });
 
-  it('returns the current claimed task for the annotator', async () => {
+  it('returns the current claimed document session for the annotator', async () => {
     const runningServer = await startServer(createEnvironment());
     servers.push(runningServer.server);
 
     const adminCookie = await login(runningServer, 'admin', 'S3curePassw0rd!');
     await createAnnotator(runningServer, adminCookie);
-    await uploadDocument(runningServer, adminCookie, 'current-doc');
+    await uploadDocument(runningServer, adminCookie, 'current-doc', 2);
 
     const annotatorCookie = await login(runningServer, 'annotator-1', 'AnnotatorPass1!');
     const claimResponse = await fetch(`${runningServer.baseUrl}/api/annotator/tasks/claim-next`, {
@@ -211,8 +234,11 @@ describe('annotator routes', () => {
         cookie: annotatorCookie,
       },
     });
-    const claimedTask = (await claimResponse.json()) as {
-      task: { id: number; status: string; reviewPoint: string };
+    const claimedSession = (await claimResponse.json()) as {
+      session: {
+        document: { id: number };
+        tasks: Array<{ id: number; status: string; reviewPoint: string }>;
+      };
     };
 
     const currentResponse = await fetch(`${runningServer.baseUrl}/api/annotator/tasks/current`, {
@@ -223,11 +249,25 @@ describe('annotator routes', () => {
 
     expect(currentResponse.status).toBe(200);
     await expect(currentResponse.json()).resolves.toEqual({
-      task: expect.objectContaining({
-        id: claimedTask.task.id,
-        status: 'claimed',
-        reviewPoint: 'Check water item',
-      }),
+      session: {
+        document: expect.objectContaining({
+          id: claimedSession.session.document.id,
+          title: 'current-doc',
+          taskCount: 2,
+        }),
+        tasks: [
+          expect.objectContaining({
+            id: claimedSession.session.tasks[0].id,
+            status: 'claimed',
+            reviewPoint: 'Check current-doc item 1',
+          }),
+          expect.objectContaining({
+            id: claimedSession.session.tasks[1].id,
+            status: 'claimed',
+            reviewPoint: 'Check current-doc item 2',
+          }),
+        ],
+      },
     });
   });
 
@@ -246,7 +286,11 @@ describe('annotator routes', () => {
         cookie: annotatorCookie,
       },
     });
-    const claimedTask = (await claimResponse.json()) as { task: { id: number } };
+    const claimedSession = (await claimResponse.json()) as {
+      session: {
+        tasks: Array<{ id: number }>;
+      };
+    };
 
     const draftPayload = {
       label: 'water',
@@ -257,7 +301,7 @@ describe('annotator routes', () => {
     };
 
     const draftResponse = await fetch(
-      `${runningServer.baseUrl}/api/annotator/tasks/${claimedTask.task.id}/draft`,
+      `${runningServer.baseUrl}/api/annotator/tasks/${claimedSession.session.tasks[0].id}/draft`,
       {
         method: 'PUT',
         headers: {
@@ -270,7 +314,7 @@ describe('annotator routes', () => {
     expect(draftResponse.status).toBe(200);
 
     const submitResponse = await fetch(
-      `${runningServer.baseUrl}/api/annotator/tasks/${claimedTask.task.id}/submit`,
+      `${runningServer.baseUrl}/api/annotator/tasks/${claimedSession.session.tasks[0].id}/submit`,
       {
         method: 'POST',
         headers: {
@@ -288,7 +332,7 @@ describe('annotator routes', () => {
     expect(submitResponse.status).toBe(200);
 
     const staleDraftResponse = await fetch(
-      `${runningServer.baseUrl}/api/annotator/tasks/${claimedTask.task.id}/draft`,
+      `${runningServer.baseUrl}/api/annotator/tasks/${claimedSession.session.tasks[0].id}/draft`,
       {
         method: 'PUT',
         headers: {

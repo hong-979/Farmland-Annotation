@@ -3,7 +3,7 @@ export type ServerConfig = {
   port: number;
 };
 
-const DEFAULT_HOST = '127.0.0.1';
+const DEFAULT_HOST = '0.0.0.0';
 const DEFAULT_PORT = 3001;
 
 function parsePort(portValue: string | undefined) {

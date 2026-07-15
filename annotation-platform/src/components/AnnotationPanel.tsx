@@ -1,4 +1,5 @@
 import { useId } from 'react';
+
 import type { AnnotationTask, ValidationIssue } from '../domain/types';
 import type { AnnotationAction } from '../state/annotationReducer';
 import { EvidenceEditor } from './EvidenceEditor';
@@ -27,7 +28,7 @@ function IssueMessages({ issues, id }: { issues: ValidationIssue[]; id: string }
   }
 
   return (
-    <ul id={id}>
+    <ul className="form-issues" id={id}>
       {issues.map((issue) => (
         <li key={`${issue.code}:${issue.path}:${issue.message}`}>{issue.message}</li>
       ))}
@@ -64,43 +65,64 @@ export function AnnotationPanel({
   const basisInvalid = basisIssues.some((issue) => issue.severity === 'error');
 
   return (
-    <section aria-label="专家标注">
-      {task.label !== null ? <p>{task.label}</p> : null}
-      <article aria-label="审查要点">
-        <h2>审查要点</h2>
-        <p>{task.reviewPoint}</p>
+    <section className="annotation-panel" aria-label="专家标注">
+      <header className="annotation-panel__header">
+        <div>
+          <p className="annotation-panel__eyebrow">当前审核点</p>
+          <h2 className="annotation-panel__title">{task.label ?? '未分组'}</h2>
+        </div>
+        <button
+          className="secondary-button"
+          type="button"
+          disabled={hasCurrentTaskError}
+          onClick={onSaveAndNext}
+        >
+          保存并下一条
+        </button>
+      </header>
+
+      <article className="annotation-card" aria-label="审查要点">
+        <p className="annotation-card__label">审查要点</p>
+        <p className="annotation-card__content">{task.reviewPoint}</p>
       </article>
+
       <fieldset
+        className="annotation-section"
         aria-describedby={statusDescribedBy}
         aria-invalid={statusInvalid ? true : undefined}
       >
         <legend>专家判断</legend>
-        {decisions.map((decision) => (
-          <label key={decision.value}>
-            <input
-              type="radio"
-              name={`${radioGroupId}-task-${task.index}-verification-status`}
-              value={decision.value}
-              checked={task.verificationStatus === decision.value}
-              aria-describedby={statusDescribedBy}
-              aria-invalid={statusInvalid ? true : undefined}
-              onChange={() =>
-                onAction({
-                  type: 'set-status',
-                  taskIndex: task.index,
-                  status: decision.value,
-                })
-              }
-            />
-            {decision.label}
-          </label>
-        ))}
+        <div className="annotation-decision-grid">
+          {decisions.map((decision) => (
+            <label key={decision.value} className="decision-card">
+              <input
+                type="radio"
+                name={`${radioGroupId}-task-${task.index}-verification-status`}
+                value={decision.value}
+                checked={task.verificationStatus === decision.value}
+                aria-describedby={statusDescribedBy}
+                aria-invalid={statusInvalid ? true : undefined}
+                onChange={() =>
+                  onAction({
+                    type: 'set-status',
+                    taskIndex: task.index,
+                    status: decision.value,
+                  })
+                }
+              />
+              <span>{decision.label}</span>
+            </label>
+          ))}
+        </div>
         <IssueMessages issues={statusIssues} id={statusIssueListId} />
       </fieldset>
-      <div>
-        <label>
-          判断依据
+
+      <section className="annotation-section">
+        <label className="field" htmlFor={`${radioGroupId}-basis`}>
+          <span>判断依据</span>
           <textarea
+            id={`${radioGroupId}-basis`}
+            className="annotation-textarea"
             value={task.judgmentBasis}
             aria-describedby={basisDescribedBy}
             aria-invalid={basisInvalid ? true : undefined}
@@ -110,7 +132,8 @@ export function AnnotationPanel({
           />
         </label>
         <IssueMessages issues={basisIssues} id={basisIssueListId} />
-      </div>
+      </section>
+
       <EvidenceEditor
         taskIndex={task.index}
         evidence={task.evidenceFragments}
@@ -118,9 +141,6 @@ export function AnnotationPanel({
         onAction={onAction}
         onJumpToPage={onJumpToPage}
       />
-      <button type="button" disabled={hasCurrentTaskError} onClick={onSaveAndNext}>
-        保存并下一条
-      </button>
     </section>
   );
 }
