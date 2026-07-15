@@ -1,29 +1,68 @@
 # 标注平台
 
-这个仓库只保留标注平台代码和必要的操作说明。
+这个仓库只保留标注平台代码和启动说明。克隆下来后，直接在仓库根目录操作即可。
 
-## 目录
+## 快速启动
 
-- `annotation-platform/`：标注平台前后端代码
-
-## 本地启动
-
-先进入项目目录：
-
-```bash
-cd annotation-platform
-```
-
-安装依赖：
+先安装依赖：
 
 ```bash
 npm install
 ```
 
-开发模式：
+### Windows
+
+启动服务：
+
+```bat
+start.bat
+```
+
+停止服务：
+
+```bat
+stop.bat
+```
+
+### Linux
+
+首次先赋予脚本执行权限：
+
+```bash
+chmod +x start.sh stop.sh
+```
+
+启动服务：
+
+```bash
+./start.sh
+```
+
+停止服务：
+
+```bash
+./stop.sh
+```
+
+`start.bat` 和 `start.sh` 会在缺少 `dist/` 时自动执行构建，然后启动服务。
+
+## 访问与登录
+
+- 默认地址：`http://127.0.0.1:3001`
+- 默认管理员账号：`admin`
+- 默认管理员密码：`Admin@123456`
+
+## 开发模式
+
+后端开发：
 
 ```bash
 npm run dev:server
+```
+
+前端开发：
+
+```bash
 npm run dev -- --host 127.0.0.1 --port 5174
 ```
 
@@ -33,52 +72,7 @@ npm run dev -- --host 127.0.0.1 --port 5174
 npm run build
 ```
 
-## 服务启动
-
-### Windows
-
-```bat
-cd annotation-platform
-start.bat
-```
-
-停止：
-
-```bat
-cd annotation-platform
-stop.bat
-```
-
-### Linux
-
-首次建议先赋予执行权限：
-
-```bash
-cd annotation-platform
-chmod +x start.sh stop.sh
-```
-
-启动：
-
-```bash
-cd annotation-platform
-./start.sh
-```
-
-停止：
-
-```bash
-cd annotation-platform
-./stop.sh
-```
-
-## 默认配置
-
-- 默认地址：`http://127.0.0.1:3001`
-- 默认管理员账号：`admin`
-- 默认管理员密码：`Admin@123456`
-
-可通过环境变量覆盖：
+## 可配置环境变量
 
 - `ANNOTATION_SERVER_HOST`
 - `ANNOTATION_SERVER_PORT`
@@ -88,8 +82,8 @@ cd annotation-platform
 - `BOOTSTRAP_ADMIN_DISPLAY_NAME`
 - `SESSION_SECRET`
 
-## 数据说明
+## 数据目录
 
-- 运行期数据库、上传文件、导出数据都在 `annotation-platform/.data/`
+- 运行数据库、上传文件、导出结果都在 `.data/`
 - `.data/` 已加入忽略，不会提交到仓库
-- 原始 PDF、原始 JSON、测试运行产物不应放进 Git
+- 原始 PDF、原始 JSON、日志文件、构建产物都不应提交到 Git
