@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.server.tsbuildinfo",
+    "allowImportingTsExtensions": false,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "noEmit": false,
+    "outDir": "./dist-server",
+    "rootDir": "./server",
+    "sourceMap": true
+  },
+  "include": ["server/**/*.ts"]
+}
