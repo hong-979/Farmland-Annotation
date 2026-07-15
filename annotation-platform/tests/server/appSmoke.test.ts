@@ -1,6 +1,9 @@
 // @vitest-environment node
 
 import { createServer, type Server } from 'node:http';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -11,7 +14,18 @@ describe('server app smoke', () => {
   let baseUrl: string;
 
   beforeAll(async () => {
-    server = createServer(createApp());
+    server = createServer(
+      createApp({
+        environment: {
+          ANNOTATION_DB_PATH: join(mkdtempSync(join(tmpdir(), 'annotation-app-smoke-')), 'app.sqlite'),
+          BOOTSTRAP_ADMIN_USERNAME: 'admin',
+          BOOTSTRAP_ADMIN_PASSWORD: 'SmokePass123!',
+          BOOTSTRAP_ADMIN_DISPLAY_NAME: 'Smoke Admin',
+          ANNOTATION_SESSION_SECRET: 'smoke-session-secret',
+          NODE_ENV: 'test',
+        },
+      }),
+    );
 
     await new Promise<void>((resolve) => {
       server.listen(0, '127.0.0.1', () => resolve());
