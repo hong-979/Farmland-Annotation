@@ -2,6 +2,7 @@ import express from 'express';
 
 import { ensureBootstrapAdmin } from './db/bootstrapAdmin.js';
 import { createDatabaseProvider } from './db/database.js';
+import { createAdminRoutes } from './routes/adminRoutes.js';
 import { createAuthRoutes } from './routes/authRoutes.js';
 
 type CreateAppOptions = {
@@ -17,6 +18,13 @@ export function createApp({ environment = process.env }: CreateAppOptions = {}) 
   app.use(
     '/api/auth',
     createAuthRoutes({
+      databaseProvider,
+      environment,
+    }),
+  );
+  app.use(
+    '/api/admin',
+    createAdminRoutes({
       databaseProvider,
       environment,
     }),
